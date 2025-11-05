@@ -1,0 +1,407 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["relationJoins"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id        Int     @id @default(autoincrement())
+  name      String
+  email     String  @unique
+  password  String
+  status    Boolean
+  countryId BigInt?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  roleId Int
+  role   role? @relation(fields: [roleId], references: [id])
+
+  whatsappId Int?
+  whatsapp   whatsapps?  @relation(fields: [whatsappId], references: [id])
+  templates  templates[]
+  calendar   calendar[]
+  notify     notify[]
+  people     people[]
+  pointSale  pointSale[]
+  entity     entity[]
+}
+
+model role {
+  id          Int    @id @default(autoincrement())
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  users           users[]
+  rolePermissions rolePermission[]
+}
+
+model permissions {
+  id              Int              @id @default(autoincrement())
+  name            String
+  description     String
+  parent          Int?
+  createdAt       DateTime         @default(now())
+  parentRel       permissions?     @relation("ParentChild", fields: [parent], references: [id])
+  children        permissions[]    @relation("ParentChild")
+  rolePermissions rolePermission[]
+}
+
+model rolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  role       role        @relation(fields: [roleId], references: [id])
+  permission permissions @relation(fields: [permissionId], references: [id])
+
+  @@unique([roleId, permissionId])
+}
+
+model whatsapps {
+  id        Int      @id @default(autoincrement())
+  name      String
+  session   String?  @db.Text
+  qrcode    String?  @db.Text
+  status    String?
+  battery   String?
+  plugged   Boolean?
+  retries   Int?
+  countryId Int
+  country   country  @relation(fields: [countryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  users    users[]
+  messages messages[]
+  notify   notify[]
+  calendar calendar[]
+}
+
+model messages {
+  id        Int     @id @default(autoincrement())
+  body      String  @db.Text
+  ack       Int?
+  read      Int
+  mediaType String
+  mediaUrl  String? @db.LongText
+
+  whatsappId Int
+  whatsapp   whatsapps @relation(fields: [whatsappId], references: [id])
+
+  peopleId Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now())
+
+  fromMe   Int
+  isDelete Int?
+}
+
+model templates {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.Text
+  message     String     @db.Text
+  type        Int
+  contentType Int
+  file        String?    @db.Text
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @default(now())
+  userId      Int
+  user        users      @relation(fields: [userId], references: [id])
+  calendar    calendar[]
+}
+
+model calendar {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  timeStart   String
+  timeEnd     String?
+  category    String
+  status      String
+  deleted     Boolean  @default(false)
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now())
+  userId         Int
+  user           users            @relation(fields: [userId], references: [id])
+  whatsappId     Int
+  whatsapp       whatsapps        @relation(fields: [whatsappId], references: [id])
+  historySending historySending[]
+
+  templateId Int?
+  template   templates? @relation(fields: [templateId], references: [id])
+}
+
+model historySending {
+  id          Int      @id @default(autoincrement())
+  namePatient String
+  patientId   String
+  phone       String
+  status      String
+  createdAt   DateTime @default(now())
+
+  calendarId Int
+  calendar   calendar @relation(fields: [calendarId], references: [id])
+}
+
+model notify {
+  id         Int       @id @default(autoincrement())
+  title      String
+  message    String
+  status     String
+  type       String
+  userId     Int
+  user       users     @relation(fields: [userId], references: [id])
+  whatsappId Int
+  whatapp    whatsapps @relation(fields: [whatsappId], references: [id])
+  createdAt  DateTime  @default(now())
+}
+
+//Mapping Tables
+model country {
+  id        Int         @id @map("id")
+  name      String      @map("nombre")
+  codeIso   String      @map("codigo_iso")
+  continent String      @map("continente")
+  status    Boolean     @map("estado")
+  regions   region[]
+  people    people[]
+  pointSale pointSale[]
+  whatsapps whatsapps[]
+
+  @@map("pais")
+}
+
+model region {
+  id        Int     @id @map("id")
+  countryId Int     @map("pais_id")
+  name      String  @map("nombre")
+  code      String  @map("codigo")
+  country   country @relation(fields: [countryId], references: [id])
+  city      city[]
+
+  @@map("region")
+}
+
+model city {
+  id         Int     @id @map("id")
+  regionId   Int     @map("region_id")
+  name       String  @map("nombre")
+  postalCode String? @map("codigo_postal")
+  region     region  @relation(fields: [regionId], references: [id])
+
+  @@map("ciudad")
+}
+
+model entity {
+  id               Int       @id @map("ID_ENTIDAD")
+  socialReason     String?   @map("RAZON_SOCIAL")
+  peopleType       Int?      @map("TIPO_PERSONA")
+  fiscalDoc        String?   @map("DOCUMENTO_FISCAL")
+  matricula        String?   @map("MATRICULA")
+  country          String?   @map("PAIS")
+  department       String?   @map("DEPARTAMENTO")
+  city             String?   @map("CIUDAD")
+  adminAddress     String?   @map("DIRECCION_ADMIN")
+  adminPhone       String?   @map("TELEFONO_ADMIN")
+  adminEmail       String?   @map("CORREO_ADMIN")
+  isChain          String?   @map("ES_CADENA")
+  pdvNumber        String?   @map("NRO_PDV")
+  salesCat         Int?      @map("CATEGORIA_VENTAS")
+  socialState      String?   @map("ESTADO_RAZON_SOCIAL")
+  stateReason      String?   @map("MOTIVO_ESTADO")
+  legalRep         String?   @map("REPRESENTANTE_LEGAL")
+  legalDoc         String?   @map("DOC_REPRESENTANTE")
+  legalRole        String?   @map("CARGO_REPRESENTANTE")
+  legalEmail       String?   @map("CORREO_REPRESENTANTE")
+  legalPhone       String?   @map("TELEFONO_REPRESENTANTE")
+  documentation    String?   @map("DOCUMENTACION")
+  observations     String?   @map("OBSERVACIONES")
+  validationState  String?   @map("ESTADO_VALIDACION")
+  confidenceLevel  String?   @map("NIVEL_CONFIANZA")
+  fiscalVerified   String?   @map("DOC_FISCAL_VERIFICADO")
+  emailVerified    String?   @map("CORREO_VERIFICADO")
+  phoneVerified    String?   @map("TELEFONO_VERIFICADO")
+  validatedBy      Int?      @map("VALIDADO_POR")
+  validationDate   DateTime? @map("FECHA_VALIDACION") @db.DateTime
+  companyState     String?   @map("SUS_EMPRESA_ESTADO")
+  companyPlan      String?   @map("SUS_EMPRESA_PLAN")
+  companyStartDate DateTime? @map("SUS_EMPRESA_FECHA_INICIO") @db.DateTime
+  companyEndDate   DateTime? @map("SUS_EMPRESA_FECHA_FIN") @db.DateTime
+  autoRenewal      String?   @map("SUS_EMPRESA_RENOV_AUTO")
+
+  users users? @relation(fields: [validatedBy], references: [id])
+
+  people       people[]
+  pointSale    pointSale[]
+  suscriptions suscriptions[]
+  relationPdv  relationPdv[]
+
+  @@map("entidad")
+}
+
+model group {
+  id     Int      @id @map("id")
+  name   String   @map("nombre")
+  status Boolean  @map("estado")
+  option option[]
+
+  @@map("grupo_lista")
+}
+
+model option {
+  id        Int     @id @map("id")
+  groupId   Int     @map("ID_GRUPO")
+  value     String  @map("valor")
+  status    Boolean @map("estado")
+  groupList group   @relation(fields: [groupId], references: [id])
+
+  @@map("opcion_lista")
+}
+
+model people {
+  id                Int       @id @map("ID_PERSONAL")
+  countryId         Int?      @map("ID_PAIS")
+  entityId          Int?      @map("ID_ENTIDAD")
+  isOwner           String?   @map("ES_PROPIETARIO") // ¿Esta persona es propietario/socio? Sí/No
+  legalRep          String?   @map("ES_REPRESENTANTE_LEGAL")
+  name              String?   @map("NOMBRE")
+  documentType      Int?      @map("TIPO_DOCUMENTO")
+  documentNumber    String?   @map("NUMERO_DOCUMENTO")
+  birthDate         DateTime? @map("FECHA_NACIMIENTO")
+  profession        Int?      @map("PROFESION")
+  branchRole        Int?      @map("ROL_SUCURSAL")
+  corporateRole     Int?      @map("ROL_CORPORATIVO")
+  colegiatureNumber String?   @map("NUMERO_COLEGIATURA")
+  phone             String?   @map("CELULAR")
+  email             String?   @map("CORREO")
+  language          Int?      @map("IDIOMA_PREFERIDO")
+  whatsappConsent   String?   @map("CONSENTIMIENTO_WHATSAPP")
+  emailConsent      String?   @map("CONSENTIMIENTO_CORREO")
+  silenceHours      String?   @map("HORARIO_SILENCIO")
+  interests         Int?      @map("INTERESES")
+  peopleStatus      Int?      @map("ESTADO_PERSONA")
+  bank              String?   @map("BANCO")
+  bankCountry       String?   @map("PAIS_BANCO")
+  accountType       Int?      @map("TIPO_CUENTA")
+  accountNumber     String?   @map("NUMERO_CUENTA")
+  accountHolder     String?   @map("TITULAR_CUENTA")
+  fiscalHolder      String?   @map("ID_FISCAL_TITULAR")
+  validationStatus  Int?      @map("ESTADO_VALIDACION")
+  confidenceLevel   Int?      @map("NIVEL_CONFIANZA")
+  identityValidated String?   @map("DOC_IDENTIDAD_VALIDADO")
+  collegeValidated  String?   @map("COLEGIATURA_VALIDADA")
+  emailValidated    String?   @map("CORREO_VALIDADO")
+  phoneValidated    String?   @map("TELEFONO_VALIDADO")
+  validatedBy       Int?      @map("VALIDADO_POR")
+  validationDate    DateTime? @map("FECHA_VALIDACION") @db.DateTime
+  peopleState       String?   @map("SUS_PERSONA_ESTADO")
+  peoplePlan        String?   @map("SUS_PERSONA_PLAN")
+  peopleStartDate   DateTime? @map("SUS_PERSONA_FECHA_INICIO") @db.DateTime
+  peopleEndDate     DateTime? @map("SUS_PERSONA_FECHA_FIN") @db.DateTime
+  autoRenewal       String?   @map("SUS_PERSONA_RENOV_AUTO")
+  country           country?  @relation(fields: [countryId], references: [id])
+  entity            entity?   @relation(fields: [entityId], references: [id])
+
+  users       users?        @relation(fields: [validatedBy], references: [id])
+  relationPdv relationPdv[]
+
+  @@map("persona")
+}
+
+model pointSale {
+  id                   Int       @id @map("ID_PDV")
+  entityId             Int?      @map("ID_ENTIDAD")
+  countryId            Int?      @map("ID_PAIS")
+  matrix               String?   @map("ES_MATRIZ")
+  matrixId             Int?      @map("ID_MATRIZ")
+  name                 String?   @map("NOMBRE_FARMACIA")
+  chainName            String?   @map("NOMBRE_CADENA")
+  type                 Int?      @map("TIPO_PDV")
+  address              String?   @map("DIRECCION")
+  department           String?   @map("DEPARTAMENTO")
+  city                 String?   @map("CIUDAD")
+  location             String?   @map("GEOLOCALIZACION")
+  phone                String?   @map("TELEFONO")
+  whatsapp             String?   @map("WHATSAPP")
+  email                String?   @map("CORREO")
+  hours                String?   @map("HORARIO_ATENCION")
+  countEmployees       Int?      @map("CANT_EMPLEADOS")
+  monthlySales         Float?    @map("VALOR_VENTAS_MENSUAL")
+  localCurrency        String?   @map("MONEDA_LOCAL")
+  services             String?   @map("SERVICIOS_PDV")
+  licenseNumber        String?   @map("LICENCIA_NUMERO")
+  localStatus          String?   @map("ESTADO_LOCAL")
+  chainType            Int?      @map("TIPO_CADENA")
+  institutional        String?   @map("INSTITUCIONAL")
+  specialized          String?   @map("ESPECIALIZADA")
+  withinRetail         String?   @map("DENTRO_RETAIL")
+  salesCategory        Int?      @map("CATEGORIA_VENTAS")
+  notes                String?   @map("NOTAS")
+  validationState      Int?      @map("ESTADO_VALIDACION")
+  trustLevel           String?   @map("NIVEL_CONFIANZA")
+  confirmedAddress     String?   @map("DIRECCION_CONFIRMADA")
+  validatedLicense     String?   @map("LICENCIA_VALIDADA")
+  confirmedLocation    String?   @map("GEO_CONFIRMADA")
+  validatedBy          Int?      @map("VALIDADO_POR")
+  validationDate       DateTime? @map("FECHA_VALIDACION") @db.DateTime
+  pointSaleState       String?   @map("SUS_PDV_ESTADO")
+  pointSalePlan        String?   @map("SUS_PDV_PLAN")
+  pointSaleStartDate   DateTime? @map("SUS_PDV_FECHA_INICIO") @db.DateTime
+  pointSaleEndDate     DateTime? @map("SUS_PDV_FECHA_FIN") @db.DateTime
+  pointSaleAutoRenewal String?   @map("SUS_PDV_RENOV_AUTO")
+
+  entity  entity?  @relation(fields: [entityId], references: [id])
+  country country? @relation(fields: [countryId], references: [id])
+  users   users?   @relation(fields: [validatedBy], references: [id])
+
+  relationPdv relationPdv[]
+
+  @@map("punto_de_venta")
+}
+
+model suscriptions {
+  id                Int       @id @map("ID_SUSCRIPCION")
+  entityType        Int?      @map("TIPO_ENTIDAD") // Empresa|Persona|PDV
+  entityId          Int?      @map("ID_ENTIDAD")
+  category          Int?      @map("CATEGORIA")
+  subscriptionState Int?      @map("ESTADO_SUSCRIPCION")
+  plan              Int?      @map("PLAN")
+  startDate         DateTime? @map("FECHA_INICIO") @db.Date
+  endDate           DateTime? @map("FECHA_FIN") // Fin del período
+  autoRenewal       Int?      @map("RENOVACION_AUTO") // Sí/No
+  paymentReference  Int?      @map("REFERENCIA_PAGO")
+  observations      String?   @map("OBSERVACIONES")
+
+  entity entity? @relation(fields: [entityId], references: [id])
+
+  @@map("suscripciones")
+}
+
+model relationPdv {
+  id        Int       @id @map("id")
+  peopleId  Int?      @map("id_persona")
+  pdvId     Int?      @map("id_pdv")
+  entityId  Int?      @map("id_entidad")
+  createdAt DateTime? @map("fecha_creacion")
+  updatedAt DateTime? @map("fecha_modifica")
+  status    Boolean   @map("estado")
+
+  people    people?    @relation(fields: [peopleId], references: [id])
+  pointSale pointSale? @relation(fields: [pdvId], references: [id])
+  entity    entity?    @relation(fields: [entityId], references: [id])
+
+  @@map("relacion_pdv_ent_per")
+}

@@ -1,0 +1,38 @@
+export interface StoreCompanyDto {
+  id: number;
+  socialReason?: string;
+  peopleType?: number;
+  fiscalDoc?: string;
+  matricula?: string;
+  country?: string;
+  department?: string;
+  city?: string;
+  adminAddress?: string;
+  adminPhone?: string;
+  adminEmail?: string;
+  isChain?: string;
+  pdvNumber?: string;
+  salesCat?: number;
+  socialState?: string;
+  stateReason?: string;
+  legalRep?: string;
+  legalDoc?: string;
+  legalRole?: string;
+  legalEmail?: string;
+  legalPhone?: string;
+  documentation?: string;
+  observations?: string;
+  validationState?: string;
+  confidenceLevel?: string;
+  fiscalVerified?: string;
+  emailVerified?: string;
+  phoneVerified?: string;
+  validatedBy?: number;
+  validationDate?: Date;
+  companyState?: string;
+  companyPlan?: string;
+  companyStartDate?: Date;
+  companyEndDate?: Date;
+  autoRenewal?: string;
+  users: { name: string } | null;
+}
