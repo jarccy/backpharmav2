@@ -46,7 +46,7 @@ export class MessageService {
     >(query);
 
     const data = serializedData.map((item) => ({
-      contactId: item.contactId,
+      contactId: Number(item.contactId),
       name: item.name,
       number: item.number,
       mediaType: item.mediaType,
@@ -58,32 +58,34 @@ export class MessageService {
       messages: []
     }));
 
-    // const totalCountQuery = Prisma.sql`
-    //   SELECT COUNT(*) AS total
-    //   FROM (
-    //     SELECT m.peopleId
-    //     FROM messages m
-    //     INNER JOIN (
-    //       SELECT peopleId, MAX(createdAt) AS latest
-    //       FROM messages
-    //       GROUP BY peopleId
-    //     ) latest_msg ON m.peopleId = latest_msg.peopleId AND m.createdAt = latest_msg.latest
-    //     JOIN persona c ON c.ID_PERSONAL = m.peopleId
-    //     ${search ? Prisma.sql`
-    //       WHERE c.NOMBRE LIKE ${`%${search}%`} OR c.CELULAR LIKE ${`%${search}%`}
-    //     ` : Prisma.empty}
-    //   ) AS subquery;
-    // `;
+    const totalCountQuery = Prisma.sql`
+      SELECT COUNT(*) AS total
+      FROM (
+        SELECT m.peopleId
+        FROM messages m
+        INNER JOIN (
+          SELECT peopleId, MAX(createdAt) AS latest
+          FROM messages
+          GROUP BY peopleId
+        ) latest_msg ON m.peopleId = latest_msg.peopleId AND m.createdAt = latest_msg.latest
+        INNER JOIN persona c ON c.ID_PERSONAL = m.peopleId
+        WHERE m.whatsappId = ${whatsappId || 0}
+        ${search ? Prisma.sql`
+          WHERE c.NOMBRE LIKE ${`%${search}%`} OR c.CELULAR LIKE ${`%${search}%`}
+        ` : Prisma.empty}
+      ) AS subquery;
+    `;
 
-    // const totalResult = await this.prisma.$queryRaw(totalCountQuery);
 
-    // let total = 0;
-    // let last_page = 1;
+    const totalResult = await this.prisma.$queryRaw(totalCountQuery);
 
-    // if (Array.isArray(totalResult) && totalResult.length > 0) {
-    //   total = Number(totalResult[0].total);
-    //   last_page = Math.ceil(total / parseInt(perPage));
-    // }
+    let total = 0;
+    let last_page = 1;
+
+    if (Array.isArray(totalResult) && totalResult.length > 0) {
+      total = Number(totalResult[0].total);
+      last_page = Math.ceil(total / parseInt(perPage));
+    }
 
     return {
       data,
@@ -142,19 +144,5 @@ export class MessageService {
     };
 
     return newMessage;
-  }
-
-  async getTemplatebyId(id: number) {
-    const message = await this.prisma.templates.findFirst({
-      select: {
-        message: true,
-        contentType: true,
-        file: true,
-      },
-      where: {
-        id,
-      },
-    });
-    return message;
   }
 }

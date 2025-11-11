@@ -1,10 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { WhatsappGateway } from '../websockets/socket.gateaway';
-import { WhatsappService } from '../websockets/whatsapp';
-import { ContactService } from './contact.service';
+import { ConnectionService } from '../services/connection.service';
 const dayjs = require('dayjs');
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 
 let countries = [
@@ -22,8 +26,7 @@ export class TaskWhatsappService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly whatsappGateway: WhatsappGateway,
-    private readonly wsService: WhatsappService,
-    private readonly contactService: ContactService,
+    private readonly wsService: ConnectionService,
   ) { }
 
   @Cron('*/20 * * * * *')
@@ -44,24 +47,29 @@ export class TaskWhatsappService {
   }
 
   async SendMessage(countryId: number) {
-    // this.whatsappGateway.emitEvent('test', dayjs().format('HH:mm:ss DD/MM/YYYY'));
-    const patient = await this.prisma.historySending.findFirst({
+    const contact = await this.prisma.historySending.findFirst({
       where: {
         status: 'Pendiente',
         calendar: {
           deleted: false,
-          status: 'En Proceso',
-          whatsappId: countryId,
+          status: 'En Proceso'
         },
       },
       select: {
         id: true,
+        patientId: true,
         namePatient: true,
         phone: true,
         calendar: {
           select: {
             id: true,
             userId: true,
+            whatsapp: {
+              select: {
+                id: true,
+                country: true,
+              },
+            },
             template: {
               select: {
                 name: true,
@@ -79,36 +87,38 @@ export class TaskWhatsappService {
       },
     });
 
-    if (!patient) {
+    if (!contact) {
       return;
     }
 
-    const verifyMediaType = patient.calendar.template.file ? 'image' : 'text';
+    const verifyMediaType = contact.calendar.template.file ? 'image' : 'text';
 
-    let contact = await this.contactService.getContactByNumber(patient.phone);
+    // let contact = await this.contactService.getContactByNumber(patient.phone);
 
-    if (!contact) {
-      // console.log('No existe contacto');
-      const newContact = {
-        name: patient.namePatient ?? 'Sin Nombre',
-        number: patient.phone,
-        profilePicUrl: null,
-      };
-      contact = await this.contactService.create(newContact);
-    }
+    // console.log('No existe contacto');
+    // if (!contact) {
+    //   const newContact = {
+    //     name: patient.namePatient ?? 'Sin Nombre',
+    //     number: patient.phone,
+    //     profilePicUrl: null,
+    //   };
+    //   contact = await this.contactService.create(newContact);
+    // }
 
     let body = {
-      number: patient.phone,
-      message: patient.calendar.template.message,
+      peopleId: +contact.patientId,
+      number: contact.phone,
+      message: contact.calendar.template.message,
       mediaType: verifyMediaType,
-      peopleId: contact,
+      whatsappId: contact.calendar.whatsapp.id,
     };
 
-    const response = await this.wsService.sendTaskMessage(
+    const response = await this.wsService.sendWSMessage(
       body,
-      patient.calendar.userId,
-      patient.calendar.template.file,
+      contact.calendar.userId,
+      contact.calendar.template.file,
     );
+    // const response = 'error';
 
     console.log('Task ', response);
 
@@ -119,7 +129,7 @@ export class TaskWhatsappService {
 
     await this.prisma.historySending.update({
       where: {
-        id: patient.id,
+        id: contact.id,
       },
       data: {
         status: statusProcess,
@@ -132,7 +142,7 @@ export class TaskWhatsappService {
         calendar: {
           deleted: false,
           status: 'En Proceso',
-          id: patient.calendar.id,
+          id: contact.calendar.id,
         },
       },
     });
@@ -141,17 +151,17 @@ export class TaskWhatsappService {
       await this.prisma.notify.create({
         data: {
           title: `Envio de Mensajes Finalizado`,
-          message: `Se ha finalizado el envio de mensajes a las ${dayjs().format('HH:mm')} del ${dayjs().format('YYYY-MM-DD')} con la plantilla ${patient.calendar.template.name}`,
+          message: `Se ha finalizado el envio de mensajes a las ${dayjs().format('HH:mm')} del ${dayjs().format('YYYY-MM-DD')} con la plantilla ${contact.calendar.template.name}`,
           status: 'Finalizado',
           type: 'Mensajes Programados',
-          userId: patient.calendar.userId,
+          userId: contact.calendar.userId,
           whatsappId: 1
         },
       });
 
       await this.prisma.calendar.update({
         where: {
-          id: patient.calendar.id,
+          id: contact.calendar.id,
         },
         data: {
           status: 'Finalizado',

@@ -1,15 +1,13 @@
 import { Module } from '@nestjs/common';
 import { WhatsappGateway } from './websockets/socket.gateaway';
 import { PrismaService } from '../prisma.service';
-import { WhatsappService } from './websockets/whatsapp';
 import { WhatsappController, } from './whatsapp.controller';
 import { ConnectionService } from './services/connection.service';
 import { ContactService } from './services/contact.service';
 import { MessageService } from './services/message.service';
-import { WSController } from './ws.controller';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { TaskWhatsappService } from './services/taskWhatsapp.service';
+import { TaskWhatsappService } from './bot/task.service';
 import { WsStartService } from './websockets/start';
 
 @Module({
@@ -20,10 +18,9 @@ import { WsStartService } from './websockets/start';
       }),
     }),
   ],
-  controllers: [WhatsappController, WSController,],
+  controllers: [WhatsappController],
   providers: [
     WhatsappGateway,
-    WhatsappService,
     PrismaService,
     ConnectionService,
     ContactService,

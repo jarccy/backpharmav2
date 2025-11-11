@@ -315,8 +315,8 @@ model people {
   country           country?  @relation(fields: [countryId], references: [id])
   entity            entity?   @relation(fields: [entityId], references: [id])
 
-  users       users?        @relation(fields: [validatedBy], references: [id])
-  relationPdv relationPdv[]
+  users users? @relation(fields: [validatedBy], references: [id])
+  // relationPdv relationPdv[]
 
   @@map("persona")
 }
@@ -399,7 +399,7 @@ model relationPdv {
   updatedAt DateTime? @map("fecha_modifica")
   status    Boolean   @map("estado")
 
-  people    people?    @relation(fields: [peopleId], references: [id])
+  // people    people?    @relation(fields: [peopleId], references: [id])
   pointSale pointSale? @relation(fields: [pdvId], references: [id])
   entity    entity?    @relation(fields: [entityId], references: [id])
 

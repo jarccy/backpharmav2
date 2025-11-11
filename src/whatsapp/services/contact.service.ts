@@ -30,9 +30,9 @@ export class ContactService {
       data: {
         id: newIdRelation,
         peopleId: newId,
-        entityId: null,
-        pdvId: null,
-        status: null,
+        entityId: undefined,
+        pdvId: undefined,
+        status: true,
         createdAt: new Date(),
       } as any,
     });

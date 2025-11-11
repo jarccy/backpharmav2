@@ -4,12 +4,12 @@ import { Whatsapp } from '../dto/whatsapp.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Template } from '../dto/templates.dto';
 import { diskStorage, StorageEngine } from 'multer';
-import { initWbot } from '../example/wsessions';
+import { initWbot } from '../bot/wsessions';
 import { WhatsappGateway } from '../websockets/socket.gateaway';
 import { convertFileToBase64 } from 'src/common/functions';
 import { MessageMedia } from 'whatsapp-web.js';
 import { StoreMessage } from '../dto/message.dto';
-import { removeWbot, getWbot } from '../example/wsessions';
+import { removeWbot, getWbot } from '../bot/wsessions';
 
 
 @Injectable()
@@ -89,7 +89,8 @@ export class ConnectionService {
     try {
       let fileBase = null;
       let options: { media?: any } = {};
-      const wbot = getWbot(1);
+
+      const wbot = getWbot(+data.whatsappId);
 
       if (file) {
         let fileUrl = file.split('/public')[1];
@@ -112,9 +113,9 @@ export class ConnectionService {
           read: 0,
           mediaType: data.mediaType,
           fromMe: 1,
-          peopleId: parseInt(data.peopleId.toString()),
+          peopleId: +data.peopleId,
           mediaUrl: file ?? null,
-          whatsappId: 1,
+          whatsappId: +data.whatsappId,
         },
       });
       return 'success';
@@ -220,5 +221,19 @@ export class ConnectionService {
       value: template.id,
       label: template.name,
     }));
+  }
+
+  async getTemplatebyId(id: number) {
+    const message = await this.prisma.templates.findFirst({
+      select: {
+        message: true,
+        contentType: true,
+        file: true,
+      },
+      where: {
+        id,
+      },
+    });
+    return message;
   }
 }

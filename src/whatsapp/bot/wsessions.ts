@@ -143,7 +143,7 @@ export const initWbot = async (whatsapp: Whatsapp, io: WhatsappGateway): Promise
             const newContact = {
               name: detailContact.name ?? 'Sin Nombre',
               phone: detailContact.number,
-              profilePicUrl: await wbot.getProfilePicUrl(message.from),
+              // profilePicUrl: await wbot.getProfilePicUrl(message.from),
             };
 
             contactDetail = await prisma.people.create({ data: { ...newContact, id: newId } });
@@ -157,15 +157,15 @@ export const initWbot = async (whatsapp: Whatsapp, io: WhatsappGateway): Promise
             await prisma.relationPdv.create({
               data: {
                 id: newIdRelation,
-                peopleId: newId,
-                entityId: null,
-                pdvId: null,
-                status: null,
+                peopleId: contactDetail.id,
+                entityId: undefined,
+                pdvId: undefined,
+                status: true,
                 createdAt: new Date(),
               } as any,
             });
 
-            contact = newId;
+            contact = contactDetail.id;
           }
 
           let image = null;
@@ -185,7 +185,7 @@ export const initWbot = async (whatsapp: Whatsapp, io: WhatsappGateway): Promise
               mediaUrl: image,
               fromMe: message.fromMe == false ? 0 : 1,
               peopleId: contact,
-              whatsappId: 1
+              whatsappId: wbot.id
             },
           });
 

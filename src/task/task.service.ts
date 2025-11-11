@@ -16,7 +16,7 @@ let countries = [
   { id: 4, country: 'Nicaragua', timezone: 'America/Managua', hour: '', date: '' },
   { id: 5, country: 'Costa Rica', timezone: 'America/Costa_Rica', hour: '', date: '' },
   { id: 6, country: 'Colombia', timezone: 'America/Bogota', hour: '', date: '' },
-  { id: 7, country: 'Peru', timezone: 'America/Lima', hour: '', date: '' },
+  // { id: 7, country: 'Peru', timezone: 'America/Lima', hour: '', date: '' },
 ];
 
 @Injectable()
@@ -39,18 +39,12 @@ export class TaskService {
     });
 
     countries.forEach(async (c) => {
-      await this.findTaskCalendar(c.date, c.hour);
+      await this.findTaskCalendar(c.id, c.date, c.hour);
     });
     this.logger.debug('Search Task all countries');
   }
-  // InProgressTask() {
-  //   const date = dayjs().format('YYYY-MM-DD');
-  //   const minute = dayjs().format('HH:mm');
-  //   this.findTaskCalendar(date, minute);
-  //   this.logger.debug('Search Task ' + date);
-  // }
 
-  async findTaskCalendar(date: string, hour: string) {
+  async findTaskCalendar(countryId: number, date: string, hour: string) {
     const calendar = await this.prisma.calendar.findFirst({
       where: {
         deleted: false,
@@ -58,6 +52,7 @@ export class TaskService {
         status: { not: 'Finalizado' },
         startDate: new Date(date),
         timeStart: hour,
+        whatsapp: { countryId: countryId }
       },
       select: {
         id: true,
@@ -93,6 +88,7 @@ export class TaskService {
         type: 'Mensajes Programados',
         userId: calendar.userId,
         whatsappId: calendar.whatsappId,
+        createdAt: new Date(date + ' ' + hour),
       },
     });
 

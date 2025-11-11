@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConnectionService } from '../services/connection.service';
-import { initWbot } from '../example/wsessions';
+import { initWbot } from '../bot/wsessions';
 import { WhatsappGateway } from './socket.gateaway';
 
 @Injectable()
