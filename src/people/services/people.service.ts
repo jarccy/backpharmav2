@@ -343,30 +343,6 @@ export class PeopleService {
 
   async findPeople(dto: GetDTO) {
     const { search } = dto;
-    //   const searchQuery = search
-    //     ? Prisma.sql`
-    //       AND (
-    //         nombre LIKE ${`%${search}%`} OR 
-    //         apellido LIKE ${`%${search}%`} OR 
-    //         numero_documento LIKE ${`%${search}%`}
-    //       )
-    //     `
-    //     : Prisma.sql``;
-
-    //   const query = Prisma.sql`
-    //   SELECT DISTINCT
-    //     id,
-    //     nombre,
-    //     numero_documento AS documentNumber,
-    //     CONCAT(nombre, ' ', apellido) AS label,
-    //     sexo AS gender,
-    //     celular AS value
-    //   FROM 
-    //     personas
-    //   WHERE 1=1 ${searchQuery}
-    //   ORDER BY nombre ASC
-    //   LIMIT 10;
-    // `;
 
     const where: Prisma.peopleWhereInput = {
       ...(search && {
@@ -400,60 +376,8 @@ export class PeopleService {
     return result;
   }
 
-  // let filterQuery = Prisma.sql``;
-  // const searchQuery = search
-  //   ? Prisma.sql`
-  //     AND (
-  //       nombre LIKE ${`%${search}%`} OR 
-  //       apellido LIKE ${`%${search}%`} OR 
-  //       numero_documento LIKE ${`%${search}%`} OR
-  //       celular LIKE ${`%${search}%`}
-  //     )
-  //   `
-  //   : Prisma.sql``;
-
-  // if (country && country != 0) {
-  //   filterQuery = Prisma.sql`${filterQuery} AND id_pais = ${country}`;
-  // }
-
-  // if (gender) {
-  //   filterQuery = Prisma.sql`${filterQuery} AND sexo = ${gender}`;
-  // }
-
-  // if (birthDate) {
-  //   filterQuery = Prisma.sql`${filterQuery} AND DATE_FORMAT(fecha_nacimiento, '%m-%d') = ${birthDate}`;
-  // }
-
-  // if (incriptionDate) {
-  //   filterQuery = Prisma.sql`${filterQuery} AND fecha_inscripcion = ${incriptionDate}`;
-  // }
-
-  // if (startDate && endDate) {
-  //   const endDateTime = endDate + ' 23:59:59';
-  //   filterQuery = Prisma.sql`${filterQuery} AND fecha_inscripcion BETWEEN ${startDate} AND ${endDateTime}`;
-  // }
-
-
-  //   const query = Prisma.sql`
-  //   SELECT DISTINCT
-  //     id,
-  //     numero_documento AS documentNumber,
-  //     CONCAT(nombre, ' ', apellido) AS name,
-  //     sexo AS gender,
-  //     celular AS phone,
-  //     fecha_nacimiento as birthDate,
-  //     fecha_inscripcion AS enrollmentDate
-  //   FROM 
-  //     pacientes
-  //   WHERE 1=1 ${searchQuery} ${filterQuery}
-  //   ORDER BY  fecha_inscripcion DESC
-  //   LIMIT 50;
-  // `;
-
-  // const { search, country, gender, birthDate, incriptionDate, startDate, endDate } = dto;
-
   async findPeopleSelect(dto: GetDTO) {
-    const { search, first, country, city, branch } = dto;
+    const { page, perPage, search, country, city, branch } = dto;
 
     const where: Prisma.peopleWhereInput = {
       ...(country && country != 0 && { countryId: Number(country) }),
@@ -493,9 +417,10 @@ export class PeopleService {
         country: { select: { name: true } },
       },
       where,
-      take: first ? 50 : 100,
+      skip: (+page - 1) * +perPage,
+      take: +perPage,
+      orderBy: { name: 'asc' },
     });
-
 
     const result = query.map((row) => {
       const age = dayjs().diff(dayjs(row.birthDate), 'year').toString();
@@ -507,11 +432,18 @@ export class PeopleService {
         birthDate: dayjs.utc(row.birthDate).format('YYYY-MM-DD'),
         selected: false,
         enrollmentDate: row.peopleStartDate,
-        country: row.country.name
+        country: row.country ? row.country.name : null
       };
     });
 
-    return result;
+    const total = await this.prisma.people.count({ where });
+    const last_page = Math.ceil(total / parseInt(perPage));
+
+    return {
+      data: result,
+      total,
+      last_page,
+    };
   }
 
 }

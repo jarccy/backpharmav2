@@ -10,13 +10,13 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 let countries = [
-  { id: 1, country: 'Guatemala', timezone: 'America/Guatemala', hour: '', date: '' },
-  { id: 2, country: 'Honduras', timezone: 'America/Tegucigalpa', hour: '', date: '' },
-  { id: 3, country: 'Panamá', timezone: 'America/Panama', hour: '', date: '' },
-  { id: 4, country: 'Nicaragua', timezone: 'America/Managua', hour: '', date: '' },
-  { id: 5, country: 'Costa Rica', timezone: 'America/Costa_Rica', hour: '', date: '' },
-  { id: 6, country: 'Colombia', timezone: 'America/Bogota', hour: '', date: '' },
-  // { id: 7, country: 'Peru', timezone: 'America/Lima', hour: '', date: '' },
+  { id: 1, country: 'Guatemala', timezone: 'America/Guatemala' },
+  { id: 2, country: 'Honduras', timezone: 'America/Tegucigalpa' },
+  { id: 3, country: 'Panamá', timezone: 'America/Panama' },
+  { id: 4, country: 'Nicaragua', timezone: 'America/Managua' },
+  { id: 5, country: 'Costa Rica', timezone: 'America/Costa_Rica' },
+  { id: 6, country: 'Colombia', timezone: 'America/Bogota' },
+  // { id: 7, country: 'Peru', timezone: 'America/Lima'},
 ];
 
 @Injectable()
@@ -29,17 +29,9 @@ export class TaskService {
 
   @Cron(CronExpression.EVERY_MINUTE)
   InProgressTask() {
-    countries = countries.map((c) => {
-      const localTime = dayjs().tz(c.timezone);
-      return {
-        ...c,
-        hour: localTime.format('HH:mm'),
-        date: localTime.format('YYYY-MM-DD'),
-      };
-    });
-
     countries.forEach(async (c) => {
-      await this.findTaskCalendar(c.id, c.date, c.hour);
+      const localTime = dayjs().tz(c.timezone);
+      await this.findTaskCalendar(c.id, localTime.format('YYYY-MM-DD'), localTime.format('HH:mm'));
     });
     this.logger.debug('Search Task all countries');
   }
@@ -51,13 +43,11 @@ export class TaskService {
         category: 'Programación',
         status: { not: 'Finalizado' },
         startDate: new Date(date),
-        timeStart: hour,
-        whatsapp: { countryId: countryId }
+        timeStart: hour
       },
       select: {
         id: true,
         userId: true,
-        whatsappId: true,
         _count: {
           select: {
             historySending: true,
@@ -87,7 +77,6 @@ export class TaskService {
         status: 'En Proceso',
         type: 'Mensajes Programados',
         userId: calendar.userId,
-        whatsappId: calendar.whatsappId,
         createdAt: new Date(date + ' ' + hour),
       },
     });

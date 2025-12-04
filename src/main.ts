@@ -8,15 +8,15 @@ async function bootstrap() {
   app.setGlobalPrefix('api/');
   app.useGlobalPipes(new ValidationPipe());
 
-  app.enableCors({
-    origin: process.env.FRONTEND_URL,
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-  });
+  // app.enableCors({
+  //   origin: process.env.FRONTEND_URL,
+  //   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  //   credentials: true,
+  // });
 
   app.useWebSocketAdapter(new MyIoAdapter(app));
 
-  // app.enableCors();
+  app.enableCors('*');
   await app.listen(process.env.PORT || 5000);
 }
 bootstrap();

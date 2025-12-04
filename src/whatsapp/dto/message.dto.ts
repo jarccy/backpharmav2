@@ -1,34 +1,23 @@
 // import { IsBoolean, IsNumber, IsString } from 'class-validator';
 
-export class Message {
-  body: string;
-  ack?: number;
-  read: number;
-  mediaType: string;
-  mediaUrl?: string;
-  fromMe: number;
-  isDelete?: number;
-  peopleId: number;
-  whatsappId: number;
-}
+// export class StoreMessage {
+//   body: string;
+//   ack?: number;
+//   read: number;
+//   mediaType: string;
+//   mediaUrl?: string;
+//   fromMe: number;
+//   isDelete?: number;
+//   peopleId: number;
+//   whatsappId: number;
+// }
 
-export interface StoreMessage {
+export interface SendMessage {
   peopleId: number;
   number: string;
   message: string;
   mediaType?: string;
-  mediaUrl?: string;
-  read?: string;
-  whatsappId: number;
-}
-
-export interface StoreManyMessage {
-  templateId: string;
-  patients: {
-    patientId: string;
-    number: string;
-    name: string;
-  }[];
+  file?: string | null;
 }
 
 export interface sendMessageTask {

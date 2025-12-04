@@ -22,14 +22,12 @@ model users {
   roleId Int
   role   role? @relation(fields: [roleId], references: [id])
 
-  whatsappId Int?
-  whatsapp   whatsapps?  @relation(fields: [whatsappId], references: [id])
-  templates  templates[]
-  calendar   calendar[]
-  notify     notify[]
-  people     people[]
-  pointSale  pointSale[]
-  entity     entity[]
+  templates templates[]
+  calendar  calendar[]
+  notify    notify[]
+  people    people[]
+  pointSale pointSale[]
+  entity    entity[]
 }
 
 model role {
@@ -79,28 +77,22 @@ model whatsapps {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
-
-  users    users[]
-  messages messages[]
-  notify   notify[]
-  calendar calendar[]
 }
 
 model messages {
   id        Int     @id @default(autoincrement())
-  body      String  @db.Text
+  messageId String? @db.Text
+  body      String  @db.LongText
   ack       Int?
-  read      Int
+  read      Int?
   mediaType String
+  mediaId   String? @db.Text
   mediaUrl  String? @db.LongText
-
-  whatsappId Int
-  whatsapp   whatsapps @relation(fields: [whatsappId], references: [id])
 
   peopleId Int?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now())
+  createdAt DateTime?
+  updatedAt DateTime?
 
   fromMe   Int
   isDelete Int?
@@ -136,8 +128,6 @@ model calendar {
   updatedAt      DateTime         @default(now())
   userId         Int
   user           users            @relation(fields: [userId], references: [id])
-  whatsappId     Int
-  whatsapp       whatsapps        @relation(fields: [whatsappId], references: [id])
   historySending historySending[]
 
   templateId Int?
@@ -157,16 +147,14 @@ model historySending {
 }
 
 model notify {
-  id         Int       @id @default(autoincrement())
-  title      String
-  message    String
-  status     String
-  type       String
-  userId     Int
-  user       users     @relation(fields: [userId], references: [id])
-  whatsappId Int
-  whatapp    whatsapps @relation(fields: [whatsappId], references: [id])
-  createdAt  DateTime  @default(now())
+  id        Int      @id @default(autoincrement())
+  title     String
+  message   String
+  status    String
+  type      String
+  userId    Int
+  user      users    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }
 
 //Mapping Tables

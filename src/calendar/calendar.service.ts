@@ -66,9 +66,6 @@ export class CalendarService {
           gte: new Date(startDate),
           lte: new Date(endDate),
         },
-        whatsappId: {
-          equals: Number(whatsappId || 0),
-        },
       },
     });
 
@@ -157,8 +154,7 @@ export class CalendarService {
         createdAt: new Date(dateNow),
         updatedAt: new Date(dateNow),
         status: 'Pendiente',
-        templateId: dto.templateId ?? null,
-        whatsappId: dto.whatsappId,
+        templateId: dto.templateId ?? null
       },
     });
 

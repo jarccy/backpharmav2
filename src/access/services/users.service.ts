@@ -21,7 +21,6 @@ export class UsersService {
         email: true,
         password: false,
         status: true,
-        whatsappId: true,
         createdAt: true,
         updatedAt: true,
         role: {
@@ -148,7 +147,6 @@ export class UsersService {
       email: user.email,
       role: user.role.description,
       countryId: user.countryId ? Number(user.countryId) : null,
-      whatsappId: user.whatsappId ? Number(user.whatsappId) : null,
       permissions: user.role.rolePermissions.map((rp) => ({
         id: rp.permission.id,
         name: rp.permission.name,
@@ -172,7 +170,6 @@ export class UsersService {
         email: true,
         password: false,
         status: true,
-        whatsappId: false,
         createdAt: true,
         updatedAt: true,
       },

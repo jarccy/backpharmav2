@@ -1,12 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { Message } from '../dto/message.dto';
+import { SendMessage } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable()
 export class MessageService {
-  constructor(private prisma: PrismaService) { }
+  private readonly url = process.env.URL;
+  private token = process.env.WHATSAPP_TOKEN;
+
+  constructor(private prisma: PrismaService, private httpService: HttpService) { }
 
   async getChats(dto: GetDTO) {
     const { search, perPage, page, whatsappId } = dto;
@@ -22,7 +27,6 @@ export class MessageService {
         GROUP BY peopleId
       ) latest_msg ON m.peopleId = latest_msg.contactId AND m.createdAt = latest_msg.latest
       INNER JOIN persona c ON c.ID_PERSONAL = m.peopleId
-      WHERE m.whatsappId = ${whatsappId || 0}
       ${search ? Prisma.sql`
         WHERE c.NOMBRE LIKE ${`%${search}%`} OR c.CELULAR LIKE ${`%${search}%`}
       ` : Prisma.empty}
@@ -69,7 +73,6 @@ export class MessageService {
           GROUP BY peopleId
         ) latest_msg ON m.peopleId = latest_msg.peopleId AND m.createdAt = latest_msg.latest
         INNER JOIN persona c ON c.ID_PERSONAL = m.peopleId
-        WHERE m.whatsappId = ${whatsappId || 0}
         ${search ? Prisma.sql`
           WHERE c.NOMBRE LIKE ${`%${search}%`} OR c.CELULAR LIKE ${`%${search}%`}
         ` : Prisma.empty}
@@ -114,17 +117,64 @@ export class MessageService {
     return messages;
   }
 
-  async create(data: Message) {
-    const message = await this.prisma.messages.create({
-      data: data,
-    });
-
+  async getContactOrCreate(data: any) {
     const contact = await this.prisma.people.findUnique({
       where: { id: data.peopleId },
       select: {
         id: true,
         name: true,
         // profilePicUrl: true,
+      },
+    });
+
+    if (contact) {
+      return contact;
+    }
+
+    const newContact = await this.prisma.people.create({
+      data: data,
+    });
+
+    return newContact;
+  }
+
+  async create(userId: number, data: SendMessage) {
+    // const body = {
+    //   "messaging_product": "whatsapp",
+    //   "to": "51947745375",
+    //   "type": "text",
+    //   "text": {
+    //     "body": "xd"
+    //   }
+    // }
+
+    // const response = await firstValueFrom(this.httpService.post(this.url, body, {
+    //   headers: {
+    //     "Content-Type": "application/json",
+    //     "Authorization": `Bearer ${this.token}`,
+    //   },
+    // }));
+
+    // console.log("response", response.data);
+
+    const message = await this.prisma.messages.create({
+      data: {
+        body: data.message,
+        mediaType: data.mediaType,
+        fromMe: 1,
+        peopleId: +data.peopleId,
+        createdAt: new Date(),
+        read: 1,
+        ack: 0,
+        isDelete: 0,
+      },
+    });
+
+    const contact = await this.prisma.people.findUnique({
+      where: { id: +data.peopleId },
+      select: {
+        id: true,
+        name: true,
       },
     });
 
