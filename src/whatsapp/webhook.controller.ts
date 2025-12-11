@@ -10,7 +10,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
 
-@UseGuards(AuthGuard)
 @Controller('webhook')
 export class WebhookController {
 
@@ -19,7 +18,7 @@ export class WebhookController {
     // ✅ Verificación inicial del webhook (Meta lo requiere)
     @Get()
     verify(@Req() req: Request, @Res() res: Response) {
-        const VERIFY_TOKEN = '423uh4k23gh4jy32g4ut234872384'; // el mismo que configures en Meta
+        const VERIFY_TOKEN = '36g1isPvokmmHVSSRKT5ktqu8Qk_2zvUu8j3t3So2ogV5343X'; // el mismo que configures en Meta
         const mode = req.query['hub.mode'];
         const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
@@ -38,22 +37,25 @@ export class WebhookController {
     receive(@Req() req: Request, @Res() res: Response) {
         const body = req.body;
 
-        console.log('JSON', JSON.stringify(body, null, 2));
+        // console.log('JSON', JSON.stringify(body, null, 2));
 
-        const changes = body.entry[0].changes[0].value;
+        const changes = body.entry[0].changes[0];
+        const value = changes.value;
 
-        if (Array.isArray(changes?.messages)) {
-            changes.messages.forEach((message: any, index: number) => {
+        // Mensajes entrantes
+        if (Array.isArray(value?.messages)) {
+            value.messages.forEach((message: any, index: number) => {
                 const messageValues = parseMessage(message);
-                const contactValues = parseContact(changes?.contacts?.[index]);
+                const contactValues = parseContact(value?.contacts?.[index]);
 
-                console.log('Mensaje entrante:', messageValues);
-                console.log('Contacto entrante:', contactValues);
+                console.log('📩 Mensaje entrante:', messageValues);
+                console.log('👤 Contacto entrante:', contactValues);
             });
         }
 
-        if (Array.isArray(changes?.statuses)) {
-            changes.statuses.forEach((status: any, index: number) => {
+        // Cambios de estado
+        if (Array.isArray(value?.statuses)) {
+            value.statuses.forEach((status: any, index: number) => {
                 console.log(`📊 Estado de mensaje [${index}]:`, {
                     id: status.id,
                     estado: status.status, // sent, delivered, read, failed
@@ -63,13 +65,17 @@ export class WebhookController {
             });
         }
 
-
-
+        // Actualización de plantilla
+        if (changes?.field === 'message_template_status_update') {
+            console.log('📝 Template updated:', value);
+        }
 
         return res.sendStatus(200); // WhatsApp requiere 200 OK
     }
 
+
     // Envio de mensajes
+    @UseGuards(AuthGuard)
     @Post('send')
     @UseInterceptors(
         FileInterceptor('file', {
@@ -96,11 +102,19 @@ export class WebhookController {
         @Body() body: SendMessage,
         @Res() res: Response) {
 
-        const response = await this.messageService.create(+user.id, body);
+        const response = await this.messageService.sendMessage(+user.id, body);
         console.log("Mensaje enviado:", response);
 
 
-        return res.sendStatus(200); // WhatsApp requiere 200 OK
+        return res.json(response);
+        // return res.sendStatus(200); // WhatsApp requiere 200 OK
+    }
+
+    @UseGuards(AuthGuard)
+    @Get('templates')
+    async getTemplates() {
+        const templates = await this.messageService.getTemplates();
+        return templates;
     }
 
 }

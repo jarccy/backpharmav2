@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { SendMessage } from '../dto/message.dto';
+import { SendMessage, StoreMessage, detailTemplate } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
@@ -9,7 +9,8 @@ import { firstValueFrom } from 'rxjs';
 @Injectable()
 export class MessageService {
   private readonly url = process.env.URL;
-  private token = process.env.WHATSAPP_TOKEN;
+  private readonly token = process.env.WHATSAPP_TOKEN;
+  private readonly urlTemplates = process.env.URT;
 
   constructor(private prisma: PrismaService, private httpService: HttpService) { }
 
@@ -18,14 +19,14 @@ export class MessageService {
     // -- c.NOMBRE AS name, c.CELULAR AS number, c.profilePicUrl
 
     const query = Prisma.sql`
-      SELECT m.id, m.body, m.read, m.mediaType, m.fromMe, m.createdAt, m.peopleId AS contactId,
+      SELECT m.id, m.body, m.read, m.mediaType, m.fromMe, m.createdAt, m.peopleId AS peopleId,
             c.NOMBRE AS name, c.CELULAR AS number
       FROM messages m
       INNER JOIN (
-        SELECT peopleId AS contactId, MAX(createdAt) AS latest
+        SELECT peopleId AS peopleId, MAX(createdAt) AS latest
         FROM messages
         GROUP BY peopleId
-      ) latest_msg ON m.peopleId = latest_msg.contactId AND m.createdAt = latest_msg.latest
+      ) latest_msg ON m.peopleId = latest_msg.peopleId AND m.createdAt = latest_msg.latest
       INNER JOIN persona c ON c.ID_PERSONAL = m.peopleId
       ${search ? Prisma.sql`
         WHERE c.NOMBRE LIKE ${`%${search}%`} OR c.CELULAR LIKE ${`%${search}%`}
@@ -42,7 +43,7 @@ export class MessageService {
         mediaType: string;
         fromMe: boolean;
         createdAt: Date;
-        contactId: number;
+        peopleId: number;
         name: string;
         number: string;
         profilePicUrl?: string;
@@ -50,7 +51,7 @@ export class MessageService {
     >(query);
 
     const data = serializedData.map((item) => ({
-      contactId: Number(item.contactId),
+      peopleId: Number(item.peopleId),
       name: item.name,
       number: item.number,
       mediaType: item.mediaType,
@@ -138,27 +139,53 @@ export class MessageService {
     return newContact;
   }
 
-  async create(userId: number, data: SendMessage) {
-    // const body = {
-    //   "messaging_product": "whatsapp",
-    //   "to": "51947745375",
-    //   "type": "text",
-    //   "text": {
-    //     "body": "xd"
-    //   }
-    // }
+  async sendMessage(userId: number, data: SendMessage) {
+    let body: any = {};
+    let messageId: string = "";
 
-    // const response = await firstValueFrom(this.httpService.post(this.url, body, {
-    //   headers: {
-    //     "Content-Type": "application/json",
-    //     "Authorization": `Bearer ${this.token}`,
-    //   },
-    // }));
+    if (data.template) {
+      const template = JSON.parse(data.template) as detailTemplate;
+
+      body = {
+        "messaging_product": "whatsapp",
+        "to": data.number,
+        "type": "template",
+        "template": {
+          "name": template.name,
+          "language": { "code": template.language },
+          "components": template.components
+        }
+      }
+
+    } else {
+      body = {
+        "messaging_product": "whatsapp",
+        "to": data.number,
+        "type": "text",
+        "text": {
+          "body": data.message
+        }
+      }
+    }
+
+    // console.log(body);
+
+    const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.token}`,
+      },
+    }));
 
     // console.log("response", response.data);
 
+    if (response.status === 200) {
+      messageId = response.data.messages[0].id;
+    }
+
     const message = await this.prisma.messages.create({
       data: {
+        messageId: messageId,
         body: data.message,
         mediaType: data.mediaType,
         fromMe: 1,
@@ -167,14 +194,6 @@ export class MessageService {
         read: 1,
         ack: 0,
         isDelete: 0,
-      },
-    });
-
-    const contact = await this.prisma.people.findUnique({
-      where: { id: +data.peopleId },
-      select: {
-        id: true,
-        name: true,
       },
     });
 
@@ -189,10 +208,46 @@ export class MessageService {
       isDelete: message.isDelete,
       createdAt: message.createdAt,
       profilePicUrl: null,
-      name: contact.name,
-      contactId: contact.id,
+      peopleId: data.peopleId,
     };
 
     return newMessage;
+  }
+
+  async createMessage(data: StoreMessage) {
+    const message = await this.prisma.messages.create({
+      data: {
+        messageId: data.messageId,
+        body: data.body,
+        mediaType: data.mediaType,
+        fromMe: data.fromMe,
+        peopleId: data.peopleId,
+        read: data.read,
+        ack: data.ack,
+        isDelete: data.isDelete,
+      },
+    });
+
+    console.log("Mensaje creado:", message);
+
+
+    return true;
+  }
+
+  async getTemplates() {
+    // const templates = await this.prisma.templates.findMany({
+    //   select: {
+    //     id: true,
+    //     name: true,
+    //   },
+    // });
+    const response = await firstValueFrom(this.httpService.get(this.urlTemplates + "/message_templates", {
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.token}`,
+      },
+    }));
+
+    return response.data;
   }
 }

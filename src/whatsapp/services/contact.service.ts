@@ -41,12 +41,12 @@ export class ContactService {
   }
 
   async getContactByNumber(phone: string) {
-    const contactId = await this.prisma.people.findFirst({
+    const peopleId = await this.prisma.people.findFirst({
       where: { phone },
     });
-    if (!contactId) {
+    if (!peopleId) {
       return null;
     }
-    return contactId.id;
+    return peopleId.id;
   }
 }
