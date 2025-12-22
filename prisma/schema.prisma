@@ -28,6 +28,7 @@ model users {
   people    people[]
   pointSale pointSale[]
   entity    entity[]
+  messages  messages[]
 }
 
 model role {
@@ -83,33 +84,48 @@ model messages {
   id        Int     @id @default(autoincrement())
   messageId String? @db.Text
   body      String  @db.LongText
-  ack       Int?
-  read      Int?
+  ack       Int?    @default(0) //0 no resibido, 1 resibido
+  read      Int?    @default(0) //0 no leido, 1 leido
   mediaType String
   mediaId   String? @db.Text
   mediaUrl  String? @db.LongText
 
-  peopleId Int?
+  peopleId   Int?
+  number     String?
+  templateId Int?
 
+  timestamp String?
   createdAt DateTime?
-  updatedAt DateTime?
 
   fromMe   Int
   isDelete Int?
+
+  userId Int?
+  user   users? @relation(fields: [userId], references: [id])
 }
 
 model templates {
-  id          Int        @id @default(autoincrement())
-  name        String     @db.Text
-  message     String     @db.Text
-  type        Int
-  contentType Int
-  file        String?    @db.Text
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @default(now())
-  userId      Int
-  user        users      @relation(fields: [userId], references: [id])
-  calendar    calendar[]
+  id              Int     @id @default(autoincrement())
+  metaTemplateId  String? @db.Text
+  metaName        String? @db.Text
+  language        String?
+  name            String? @db.Text
+  category        String?
+  components      String? @db.LongText
+  message         String? @db.LongText
+  contentType     String?
+  parameterFormat String?
+  previosCategory String?
+  status          String?
+  subCategory     String?
+
+  file String? @db.LongText
+
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now())
+  userId    Int
+  user      users      @relation(fields: [userId], references: [id])
+  calendar  calendar[]
 }
 
 model calendar {

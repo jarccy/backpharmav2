@@ -5,7 +5,7 @@ interface message {
   id: string;
   type: string;
   text: string;
-  fileId: string;
+  mediaId: string;
   timestamp: string;
 }
 
@@ -31,21 +31,21 @@ export const SaveImage = async (file: string, dirPath: string) => {
 
 
 export const parseMessage = (message: any): message => {
-  if (!message) return { id: "", type: "", text: "", fileId: "", timestamp: "" };
+  if (!message) return { id: "", type: "", text: "", mediaId: "", timestamp: "" };
 
   const field = fieldMap[message.type];
   if (!field || !message[field]) {
-    return { id: message.id, type: message.type, text: "", fileId: "", timestamp: "" };
+    return { id: message.id, type: message.type, text: "", mediaId: "", timestamp: "" };
   }
 
   const textValue = message.type === "text" ? message.text.body : message[field].caption || "";
-  const fileId = message.type === "text" ? "" : message[field].id;
+  const mediaId = message.type === "text" ? "" : message[field].id;
 
   return {
     id: message.id,
     type: message.type,
     text: textValue,
-    fileId: fileId,
+    mediaId: mediaId,
     timestamp: message.timestamp
   };
 }

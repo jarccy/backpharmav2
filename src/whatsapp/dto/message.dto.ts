@@ -2,25 +2,43 @@
 
 export class StoreMessage {
   messageId: string;
+  timestamp: string;
   body: string;
-  ack?: number;
-  read: number;
   mediaType: string;
   mediaUrl?: string;
-  fromMe: number;
   isDelete?: number;
-  peopleId: number;
+
+  number: string;
+  name: string;
+
+  mediaId?: string;
 }
+
+export interface UpdateMessage {
+  messageId: string;
+  number: string;
+  timestamp: string;
+  read: number;
+  status: string;
+  isDelete: number;
+}
+
+type componentType = 'header' | 'body' | 'footer';
+type paramType = 'image' | 'video' | 'file' | 'document' | 'text';
 
 export interface detailTemplate {
   templateId: string;
   name: string;
   language: string;
   components: {
-    type: string;
+    type: componentType;
     parameters: {
-      type: string;
-      text: string;
+      type: paramType;
+      text?: string;
+      image?: { link: string };
+      video?: { link: string };
+      file?: { link: string };
+      document?: { link: string };
     }[];
   }[] | null;
 }

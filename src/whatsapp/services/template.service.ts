@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { GetDTO } from '../../common/dto/params-dto';
-import { Template } from '../dto/templates.dto';
+import { createTemplate } from '../dto/templates.dto';
 import { diskStorage, StorageEngine } from 'multer';
 
 @Injectable()
@@ -14,11 +14,17 @@ export class TemplateService {
     const data = await this.prisma.templates.findMany({
       select: {
         id: true,
+        metaTemplateId: true,
+        metaName: true,
+        language: true,
         name: true,
+        category: true,
+        subCategory: true,
+        components: true,
         message: true,
-        type: true,
         contentType: true,
         file: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -40,35 +46,61 @@ export class TemplateService {
         : {},
     });
 
-    return data;
+    const response = data.map((item) => ({
+      ...item,
+      components: item.components ? JSON.parse(item.components) : [],
+    }));
+
+    return response;
   }
 
-  async createTemplate(data: Template, user: number, url: string) {
+  async createTemplate(data: createTemplate, user: number, url: string) {
     await this.prisma.templates.create({
       data: {
         ...data,
         userId: user,
-        contentType: parseInt(data.contentType),
-        type: parseInt(data.type),
+        contentType: data.contentType,
         file: url,
       },
     });
     return 'Plantilla registrado exitosamente';
   }
 
-  async updateTemplate(id: number, data: Template, user: number, url: string) {
+  async updateTemplate(id: number, data: createTemplate, user: number, url: string) {
     await this.prisma.templates.update({
       where: { id },
       data: {
         ...data,
         userId: user,
-        contentType: parseInt(data.contentType),
-        type: parseInt(data.type),
+        contentType: data.contentType,
         file: url ?? undefined,
       },
     });
 
     return 'Plantilla actualizado exitosamente';
+  }
+
+  async syncTemplates(data: createTemplate, user: number, url: string) {
+    const veryfyMetaId = await this.prisma.templates.findFirst({
+      where: {
+        metaTemplateId: data.metaTemplateId,
+      },
+    });
+    if (veryfyMetaId) {
+      console.log('Plantilla ya existe');
+      return true;
+    }
+
+    await this.prisma.templates.create({
+      data: {
+        ...data,
+        userId: user,
+        contentType: data.contentType,
+        file: url,
+      },
+    });
+
+    return true;
   }
 
   getStorageEngine(destinationPath: string): StorageEngine {
@@ -80,29 +112,6 @@ export class TemplateService {
         callback(null, `${uniqueSuffix}-${originalName}`);
       },
     });
-  }
-
-  async getTemplatesType(dto: GetDTO) {
-    const { search } = dto;
-
-    const data = await this.prisma.templates.findMany({
-      select: {
-        id: true,
-        name: true,
-      },
-      where: search
-        ? {
-          type: {
-            equals: parseInt(search),
-          },
-        }
-        : {},
-    });
-
-    return data.map((template) => ({
-      value: template.id,
-      label: template.name,
-    }));
   }
 
   async getTemplatebyId(id: number) {

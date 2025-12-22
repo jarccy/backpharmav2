@@ -50,18 +50,34 @@ export class WebhookController {
 
                 console.log('📩 Mensaje entrante:', messageValues);
                 console.log('👤 Contacto entrante:', contactValues);
+
+                let newMessage = {
+                    messageId: messageValues.id,
+                    timestamp: messageValues.timestamp,
+                    mediaType: messageValues.type,
+                    body: messageValues.text,
+                    name: contactValues.name,
+                    number: contactValues.number,
+                    mediaId: messageValues.mediaId,
+                }
+
+                this.messageService.createMessage(newMessage);
             });
         }
 
         // Cambios de estado
         if (Array.isArray(value?.statuses)) {
             value.statuses.forEach((status: any, index: number) => {
-                console.log(`📊 Estado de mensaje [${index}]:`, {
-                    id: status.id,
-                    estado: status.status, // sent, delivered, read, failed
+                let newValues = {
+                    messageId: status.id,
+                    number: status.recipient_id,
                     timestamp: status.timestamp,
-                    destinatario: status.recipient_id
-                });
+                    status: status.status,
+                    isDelete: 0,
+                }
+                console.log(`📊 Estado de mensaje [${index}]:`, status);
+
+                this.messageService.updateMessageStatus(newValues as any);
             });
         }
 

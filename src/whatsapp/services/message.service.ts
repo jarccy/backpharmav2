@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { SendMessage, StoreMessage, detailTemplate } from '../dto/message.dto';
+import { SendMessage, StoreMessage, UpdateMessage, detailTemplate } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
+import { WhatsappGateway } from '../websockets/socket.gateaway';
 
 @Injectable()
 export class MessageService {
@@ -12,7 +13,9 @@ export class MessageService {
   private readonly token = process.env.WHATSAPP_TOKEN;
   private readonly urlTemplates = process.env.URT;
 
-  constructor(private prisma: PrismaService, private httpService: HttpService) { }
+  constructor(private prisma: PrismaService, private httpService: HttpService,
+    private ws: WhatsappGateway
+  ) { }
 
   async getChats(dto: GetDTO) {
     const { search, perPage, page, whatsappId } = dto;
@@ -139,9 +142,11 @@ export class MessageService {
     return newContact;
   }
 
+  //Sending Message
   async sendMessage(userId: number, data: SendMessage) {
     let body: any = {};
     let messageId: string = "";
+    let messageSending: number = 0;
 
     if (data.template) {
       const template = JSON.parse(data.template) as detailTemplate;
@@ -168,68 +173,176 @@ export class MessageService {
       }
     }
 
-    // console.log(body);
+    console.log(JSON.stringify(body, null, 2));
 
-    const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.token}`,
-      },
-    }));
+    try {
+      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.token}`,
+        },
+      }));
 
-    // console.log("response", response.data);
+      console.log("response", response.data);
 
-    if (response.status === 200) {
-      messageId = response.data.messages[0].id;
+      if (response.status === 200) {
+        messageId = response.data.messages[0].id;
+      }
+
+      await this.prisma.messages.create({
+        data: {
+          messageId: messageId,
+          number: data.number,
+          body: data.message,
+          mediaType: data.mediaType,
+          mediaUrl: data.file,
+          fromMe: 1,
+          peopleId: +data.peopleId,
+          createdAt: new Date(),
+          read: 1,
+          ack: messageSending,
+          isDelete: 0,
+          userId: +userId
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.log(error);
+      return false;
     }
+
+    // const newMessage = {
+    //   id: message.id,
+    //   body: message.body,
+    //   ack: message.ack,
+    //   read: message.read,
+    //   mediaType: body.type,
+    //   mediaUrl: message.mediaUrl,
+    //   fromMe: message.fromMe,
+    //   isDelete: message.isDelete,
+    //   createdAt: message.createdAt,
+    //   profilePicUrl: null,
+    //   peopleId: data.peopleId,
+    // };
+
+  }
+
+  //Get or Create People
+  async createPeople(dto: { number: string, name: string }) {
+    const verifyPhone = await this.prisma.people.findFirst({ where: { phone: dto.number.trim() } });
+    if (verifyPhone) { return verifyPhone.id; }
+
+    const lastId = await this.prisma.people.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
+
+    const newId = lastId?.id ? lastId.id + 1 : 1;
+    const people = await this.prisma.people.create({ data: { ...dto, id: newId } });
+
+    const lastIdRelation = await this.prisma.relationPdv.findFirst({
+      orderBy: { id: 'desc' }, select: { id: true }
+    });
+
+    const newIdRelation = lastIdRelation?.id ? lastIdRelation.id + 1 : 1;
+
+    await this.prisma.relationPdv.create({
+      data: {
+        id: newIdRelation,
+        peopleId: newId,
+        entityId: null,
+        pdvId: null,
+        status: 'ACTIVE',
+        createdAt: new Date(),
+      } as any,
+    });
+
+    return people.id;
+  }
+
+  //Create new Message
+  async createMessage(data: StoreMessage) {
+    const peopleId = await this.createPeople({ number: data.number, name: data.name });
 
     const message = await this.prisma.messages.create({
       data: {
-        messageId: messageId,
-        body: data.message,
+        messageId: data.messageId,
+        number: data.number,
+        timestamp: data.timestamp,
         mediaType: data.mediaType,
-        fromMe: 1,
-        peopleId: +data.peopleId,
-        createdAt: new Date(),
-        read: 1,
-        ack: 0,
+        body: data.body,
+        fromMe: 0,
+        peopleId: peopleId,
+        read: 0,
+        ack: 1,
         isDelete: 0,
+        mediaId: data.mediaId,
+        createdAt: new Date()
       },
     });
 
     const newMessage = {
       id: message.id,
-      body: message.body,
-      ack: message.ack,
-      read: message.read,
-      mediaType: message.mediaType,
-      mediaUrl: message.mediaUrl,
-      fromMe: message.fromMe,
-      isDelete: message.isDelete,
+      peopleName: data.name,
+      peopleId: peopleId,
+      number: data.number,
+      messageId: data.messageId,
+      body: data.body,
+      ack: 1,
+      fromMe: 0,
+      read: 1,
+      mediaType: data.mediaType,
+      mediaUrl: data.mediaUrl,
+      isDelete: 0,
       createdAt: message.createdAt,
-      profilePicUrl: null,
-      peopleId: data.peopleId,
-    };
+    }
 
-    return newMessage;
+    this.ws.emitEvent("newMessage", newMessage)
+
+    // console.log("Mensaje creado:", message);
+
+    return true;
   }
 
-  async createMessage(data: StoreMessage) {
-    const message = await this.prisma.messages.create({
+  //Update status to Message
+  async updateMessageStatus(data: UpdateMessage) {
+    let ack: number;
+
+    if (data.status === 'delivered') {
+      ack = 2;
+    } else if (data.status === 'read') {
+      ack = 3;
+    } else {
+      ack = 1;
+    }
+
+    const message = await this.prisma.messages.update({
+      where: {
+        id: (
+          await this.prisma.messages.findFirst({
+            where: {
+              messageId: data.messageId,
+              number: data.number,
+            },
+            select: { id: true },
+          })
+        )?.id,
+      },
       data: {
-        messageId: data.messageId,
-        body: data.body,
-        mediaType: data.mediaType,
-        fromMe: data.fromMe,
-        peopleId: data.peopleId,
+        timestamp: data.timestamp,
         read: data.read,
-        ack: data.ack,
+        ack: ack,
         isDelete: data.isDelete,
       },
     });
 
-    console.log("Mensaje creado:", message);
+    const updateMessage = {
+      id: message.id,
+      messageId: data.messageId,
+      number: data.number,
+      newStatus: ack
+    }
 
+    this.ws.emitEvent("updateMessage", updateMessage)
+    console.log("Mensaje actualizado:", message);
 
     return true;
   }
