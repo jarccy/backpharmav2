@@ -17,8 +17,5 @@ export class GetDTO {
   endDate?: string | null;
 
   branch?: number | null;
-  first?: string | null;
-  whatsappId?: string | null;
-
   incriptionDate?: string | null;
 }

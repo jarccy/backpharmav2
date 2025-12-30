@@ -10,6 +10,7 @@ import { TemplateService } from './services/template.service';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { HttpModule } from '@nestjs/axios';
+import { TaskWhatsappService } from './services/taskWhatsapp.service';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { HttpModule } from '@nestjs/axios';
         ContactService,
         MessageService,
         TemplateService,
+        TaskWhatsappService,
     ],
 })
 export class WhatsappModule { }

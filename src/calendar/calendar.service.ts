@@ -26,7 +26,7 @@ export class CalendarService {
   constructor(private readonly prisma: PrismaService) { }
 
   async findAll(dto: GetDTO) {
-    const { startDate, endDate, whatsappId } = dto;
+    const { startDate, endDate } = dto;
 
     const query = await this.prisma.calendar.findMany({
       select: {

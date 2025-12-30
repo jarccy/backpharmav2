@@ -21,6 +21,7 @@ export class TemplateService {
         category: true,
         subCategory: true,
         components: true,
+        componentsSend: true,
         message: true,
         contentType: true,
         file: true,
@@ -49,6 +50,7 @@ export class TemplateService {
     const response = data.map((item) => ({
       ...item,
       components: item.components ? JSON.parse(item.components) : [],
+      componentsSend: item.componentsSend ? JSON.parse(item.componentsSend) : [],
     }));
 
     return response;
@@ -60,7 +62,7 @@ export class TemplateService {
         ...data,
         userId: user,
         contentType: data.contentType,
-        file: url,
+        file: data.file,
       },
     });
     return 'Plantilla registrado exitosamente';
@@ -73,14 +75,14 @@ export class TemplateService {
         ...data,
         userId: user,
         contentType: data.contentType,
-        file: url ?? undefined,
+        file: data.file,
       },
     });
 
     return 'Plantilla actualizado exitosamente';
   }
 
-  async syncTemplates(data: createTemplate, user: number, url: string) {
+  async syncTemplates(data: createTemplate, user: number) {
     const veryfyMetaId = await this.prisma.templates.findFirst({
       where: {
         metaTemplateId: data.metaTemplateId,
@@ -96,7 +98,7 @@ export class TemplateService {
         ...data,
         userId: user,
         contentType: data.contentType,
-        file: url,
+        file: data.file,
       },
     });
 

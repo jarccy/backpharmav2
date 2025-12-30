@@ -1,5 +1,6 @@
 // import { IsBoolean, IsNumber, IsString } from 'class-validator';
 
+//Store Message
 export class StoreMessage {
   messageId: string;
   timestamp: string;
@@ -14,11 +15,11 @@ export class StoreMessage {
   mediaId?: string;
 }
 
+//Update Message
 export interface UpdateMessage {
   messageId: string;
   number: string;
   timestamp: string;
-  read: number;
   status: string;
   isDelete: number;
 }
@@ -43,19 +44,35 @@ export interface detailTemplate {
   }[] | null;
 }
 
+export interface detailTemplateCalendar {
+  templateId: string;
+  name: string;
+  language: string;
+  components: string;
+}
+
+//Send Message
 export interface SendMessage {
+  temporalId: string;
   peopleId: number;
   number: string;
   message: string;
   mediaType?: string;
   file?: string | null;
+  createdAt: string;
   template: string | null;
 }
 
-
+//Send Message Task
 export interface sendMessageTask {
   number: string;
+  userId: number;
+  name: string;
+  language: string;
   message: string;
-  mediaType: string;
+  componentsSend: string;
+  mediaUrl?: string;
   peopleId: number;
+  createdAt: string;
+  template: detailTemplate;
 }

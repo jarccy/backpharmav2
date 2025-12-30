@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { SendMessage, StoreMessage, UpdateMessage, detailTemplate } from '../dto/message.dto';
+import { SendMessage, StoreMessage, UpdateMessage, detailTemplate, detailTemplateCalendar, sendMessageTask } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { WhatsappGateway } from '../websockets/socket.gateaway';
+const dayjs = require('dayjs');
+
 
 @Injectable()
 export class MessageService {
@@ -18,11 +20,10 @@ export class MessageService {
   ) { }
 
   async getChats(dto: GetDTO) {
-    const { search, perPage, page, whatsappId } = dto;
-    // -- c.NOMBRE AS name, c.CELULAR AS number, c.profilePicUrl
+    const { search, perPage, page } = dto;
 
     const query = Prisma.sql`
-      SELECT m.id, m.body, m.read, m.mediaType, m.fromMe, m.createdAt, m.peopleId AS peopleId,
+      SELECT m.id, m.body, m.ack, m.mediaType, m.fromMe, m.createdAt, m.peopleId AS peopleId,
             c.NOMBRE AS name, c.CELULAR AS number
       FROM messages m
       INNER JOIN (
@@ -42,7 +43,7 @@ export class MessageService {
       Array<{
         id: number;
         body: string;
-        read: boolean;
+        ack: number;
         mediaType: string;
         fromMe: boolean;
         createdAt: Date;
@@ -62,7 +63,7 @@ export class MessageService {
       lastMessage: item.body,
       lastMessageDate: item.createdAt,
       fromMe: item.fromMe,
-      read: item.read,
+      ack: item.ack,
       messages: []
     }));
 
@@ -107,7 +108,6 @@ export class MessageService {
         id: true,
         body: true,
         ack: true,
-        read: true,
         mediaType: true,
         mediaUrl: true,
         fromMe: true,
@@ -146,7 +146,7 @@ export class MessageService {
   async sendMessage(userId: number, data: SendMessage) {
     let body: any = {};
     let messageId: string = "";
-    let messageSending: number = 0;
+    let getUrlImage: string = "";
 
     if (data.template) {
       const template = JSON.parse(data.template) as detailTemplate;
@@ -162,6 +162,14 @@ export class MessageService {
         }
       }
 
+      template.components.forEach((component) => {
+        component.parameters?.forEach((parameter) => {
+          if (parameter.type === 'image') {
+            getUrlImage = parameter.image.link;
+          }
+        });
+      });
+
     } else {
       body = {
         "messaging_product": "whatsapp",
@@ -173,59 +181,50 @@ export class MessageService {
       }
     }
 
-    console.log(JSON.stringify(body, null, 2));
+    console.log("body++++", JSON.stringify(body, null, 2));
 
     try {
-      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.token}`,
+      const message = await this.prisma.messages.create({
+        data: {
+          messageId: null,
+          number: data.number,
+          body: data.message,
+          mediaType: data.mediaType,
+          mediaUrl: getUrlImage,
+          fromMe: 1,
+          peopleId: +data.peopleId,
+          createdAt: dayjs(data.createdAt).toDate(),
+          ack: 0,
+          isDelete: 0,
+          userId: +userId
         },
+      });
+
+      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
       }));
 
       console.log("response", response.data);
 
       if (response.status === 200) {
         messageId = response.data.messages[0].id;
+        await this.prisma.messages.update({ where: { id: message.id }, data: { messageId } });
       }
 
-      await this.prisma.messages.create({
-        data: {
-          messageId: messageId,
-          number: data.number,
-          body: data.message,
-          mediaType: data.mediaType,
-          mediaUrl: data.file,
-          fromMe: 1,
-          peopleId: +data.peopleId,
-          createdAt: new Date(),
-          read: 1,
-          ack: messageSending,
-          isDelete: 0,
-          userId: +userId
-        },
-      });
+      return {
+        sending: true,
+        newId: message.id,
+        temporalId: data.temporalId,
+      };
 
-      return true;
     } catch (error) {
-      console.log(error);
-      return false;
+      console.log(error.response.data);
+      return {
+        sending: false,
+        newId: null,
+        temporalId: data.temporalId,
+      };
     }
-
-    // const newMessage = {
-    //   id: message.id,
-    //   body: message.body,
-    //   ack: message.ack,
-    //   read: message.read,
-    //   mediaType: body.type,
-    //   mediaUrl: message.mediaUrl,
-    //   fromMe: message.fromMe,
-    //   isDelete: message.isDelete,
-    //   createdAt: message.createdAt,
-    //   profilePicUrl: null,
-    //   peopleId: data.peopleId,
-    // };
-
   }
 
   //Get or Create People
@@ -271,7 +270,6 @@ export class MessageService {
         body: data.body,
         fromMe: 0,
         peopleId: peopleId,
-        read: 0,
         ack: 1,
         isDelete: 0,
         mediaId: data.mediaId,
@@ -288,7 +286,6 @@ export class MessageService {
       body: data.body,
       ack: 1,
       fromMe: 0,
-      read: 1,
       mediaType: data.mediaType,
       mediaUrl: data.mediaUrl,
       isDelete: 0,
@@ -306,12 +303,14 @@ export class MessageService {
   async updateMessageStatus(data: UpdateMessage) {
     let ack: number;
 
-    if (data.status === 'delivered') {
+    if (data.status === 'sent') {
+      ack = 1;
+    } else if (data.status === 'delivered') {
       ack = 2;
     } else if (data.status === 'read') {
       ack = 3;
     } else {
-      ack = 1;
+      ack = 0;
     }
 
     const message = await this.prisma.messages.update({
@@ -328,7 +327,6 @@ export class MessageService {
       },
       data: {
         timestamp: data.timestamp,
-        read: data.read,
         ack: ack,
         isDelete: data.isDelete,
       },
@@ -342,7 +340,7 @@ export class MessageService {
     }
 
     this.ws.emitEvent("updateMessage", updateMessage)
-    console.log("Mensaje actualizado:", message);
+    // console.log("Mensaje actualizado:", message);
 
     return true;
   }
@@ -362,5 +360,86 @@ export class MessageService {
     }));
 
     return response.data;
+  }
+
+  //Sending for Calendar
+  async sendCalendarMessage(data: sendMessageTask) {
+    let body: any = {};
+    let messageId: string = "";
+    let getUrlImage: string = "";
+    let mediaType: string = "text";
+
+    console.log("data", data);
+
+
+    // const template = JSON.parse(data.template) as detailTemplateCalendar;
+
+
+    // let componentt = JSON.parse(template.components);
+
+    // componentt.forEach((component) => {
+    //   component.parameters?.forEach((parameter) => {
+    //     if (parameter.type === 'image') { getUrlImage = parameter.image.link; mediaType = "image"; }
+    //     if (parameter.type === "text" && parameter.text === "{{1}}") { parameter.text = data.name }
+    //     else if (parameter.type === "text" && parameter.text === "{{2}}") { parameter.text = data.name }
+    //     else if (parameter.type === "text" && parameter.text === "{{3}}") { parameter.text = data.name }
+    //   });
+    // });
+
+
+    // body = {
+    //   "messaging_product": "whatsapp",
+    //   "to": data.number,
+    //   "type": "template",
+    //   "template": {
+    //     "name": template.name,
+    //     "language": { "code": template.language },
+    //     "components": componentt
+    //   }
+    // }
+
+    let msg = data.message
+
+    if (msg.includes("{{1}}")) { msg = msg.replace("{{1}}", data.name) }
+    if (msg.includes("{{2}}")) { msg = msg.replace("{{2}}", data.name) }
+    if (msg.includes("{{3}}")) { msg = msg.replace("{{3}}", data.name) }
+
+
+    console.log("calendar-body", JSON.stringify(body, null, 2));
+
+    try {
+      // const message = await this.prisma.messages.create({
+      //   data: {
+      //     messageId: null,
+      //     number: data.number,
+      //     body: data.message,
+      //     mediaType: mediaType,
+      //     mediaUrl: getUrlImage,
+      //     fromMe: 1,
+      //     peopleId: +data.peopleId,
+      //     createdAt: dayjs(data.createdAt).toDate(),
+      //     ack: 0,
+      //     isDelete: 0,
+      //     userId: +data.userId
+      //   },
+      // });
+
+      // const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
+      //   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
+      // }));
+
+      // console.log("response", response.data);
+
+      // if (response.status === 200) {
+      //   messageId = response.data.messages[0].id;
+      //   await this.prisma.messages.update({ where: { id: message.id }, data: { messageId } });
+      // }
+
+      return true;
+
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
   }
 }

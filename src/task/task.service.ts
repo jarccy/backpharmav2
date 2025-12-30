@@ -2,21 +2,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { WhatsappGateway } from '../whatsapp/websockets/socket.gateaway';
-const dayjs = require('dayjs');
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
+import * as dayjs from 'dayjs';
+import * as utc from 'dayjs/plugin/utc';
+import * as timezone from 'dayjs/plugin/timezone';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-let countries = [
+const countries = [
   { id: 1, country: 'Guatemala', timezone: 'America/Guatemala' },
   { id: 2, country: 'Honduras', timezone: 'America/Tegucigalpa' },
   { id: 3, country: 'Panamá', timezone: 'America/Panama' },
   { id: 4, country: 'Nicaragua', timezone: 'America/Managua' },
   { id: 5, country: 'Costa Rica', timezone: 'America/Costa_Rica' },
   { id: 6, country: 'Colombia', timezone: 'America/Bogota' },
-  // { id: 7, country: 'Peru', timezone: 'America/Lima'},
 ];
 
 @Injectable()
@@ -28,22 +27,29 @@ export class TaskService {
   private readonly logger = new Logger(TaskService.name);
 
   @Cron(CronExpression.EVERY_MINUTE)
-  InProgressTask() {
-    countries.forEach(async (c) => {
-      const localTime = dayjs().tz(c.timezone);
-      await this.findTaskCalendar(c.id, localTime.format('YYYY-MM-DD'), localTime.format('HH:mm'));
-    });
+  async InProgressTask() {
+    await Promise.all(
+      countries.map(async (c) => {
+        const localTime = dayjs().tz(c.timezone);
+        await this.findTaskCalendar(
+          localTime.format('YYYY-MM-DD'),
+          localTime.format('HH:mm'),
+          c.timezone,
+        );
+      }),
+    );
     this.logger.debug('Search Task all countries');
   }
 
-  async findTaskCalendar(countryId: number, date: string, hour: string) {
+  async findTaskCalendar(date: string, hour: string, timezone: string) {
     const calendar = await this.prisma.calendar.findFirst({
       where: {
         deleted: false,
         category: 'Programación',
         status: { not: 'Finalizado' },
         startDate: new Date(date),
-        timeStart: hour
+        timeStart: hour,
+        countryTime: timezone,
       },
       select: {
         id: true,
@@ -61,9 +67,7 @@ export class TaskService {
       },
     });
 
-    if (!calendar) {
-      return;
-    }
+    if (!calendar) return;
 
     await this.prisma.calendar.update({
       where: { id: calendar.id },
@@ -77,7 +81,7 @@ export class TaskService {
         status: 'En Proceso',
         type: 'Mensajes Programados',
         userId: calendar.userId,
-        createdAt: new Date(date + ' ' + hour),
+        createdAt: new Date(`${date} ${hour}`),
       },
     });
 

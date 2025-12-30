@@ -168,34 +168,11 @@ export class WhatsappController {
     }
 
     @Post('templates/sync/all')
-    @UseInterceptors(
-        FileInterceptor('file', {
-            storage: diskStorage({
-                destination: (req, file, callback) => {
-                    const dirPath = './public/templates';
-                    if (!fs.existsSync(dirPath)) {
-                        fs.mkdirSync(dirPath, { recursive: true });
-                    }
-                    callback(null, dirPath);
-                },
-                filename: (req, file, callback) => {
-                    const uniqueSuffix =
-                        Date.now() + '-' + Math.round(Math.random() * 1e9);
-                    const originalName = file.originalname.replace(/\s/g, '_');
-                    callback(null, `${uniqueSuffix}-${originalName}`);
-                },
-            }),
-        }),
-    )
     syncTemplates(
         @ActiveUser() user: UserActiveI,
         @Body() createTemplateDto: createTemplate,
     ) {
-        return this.templateService.syncTemplates(
-            createTemplateDto,
-            +user.id,
-            null,
-        );
+        return this.templateService.syncTemplates(createTemplateDto, +user.id);
     }
 }
 

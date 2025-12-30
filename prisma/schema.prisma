@@ -112,6 +112,7 @@ model templates {
   name            String? @db.Text
   category        String?
   components      String? @db.LongText
+  componentsSend  String? @db.LongText
   message         String? @db.LongText
   contentType     String?
   parameterFormat String?
@@ -139,6 +140,7 @@ model calendar {
   category    String
   status      String
   deleted     Boolean  @default(false)
+  countryTime String?
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @default(now())
