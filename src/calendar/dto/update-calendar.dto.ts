@@ -14,5 +14,5 @@ export class UpdateCalendarDto {
     namePatient: string;
     phone: string;
   }[];
-  whatsappId: number;
+  countryTime: string;
 }

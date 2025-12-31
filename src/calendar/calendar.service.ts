@@ -11,16 +11,6 @@ const timezone = require('dayjs/plugin/timezone');
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-let countries = [
-  { country: 'Guatemala', timezone: 'America/Guatemala' },
-  { country: 'Honduras', timezone: 'America/Tegucigalpa' },
-  { country: 'Panamá', timezone: 'America/Panama' },
-  { country: 'Nicaragua', timezone: 'America/Managua' },
-  { country: 'Costa Rica', timezone: 'America/Costa_Rica' },
-  { country: 'Colombia', timezone: 'America/Bogota' },
-  { country: 'Peru', timezone: 'America/Lima' },
-];
-
 @Injectable()
 export class CalendarService {
   constructor(private readonly prisma: PrismaService) { }
@@ -41,6 +31,7 @@ export class CalendarService {
         status: true,
         createdAt: true,
         templateId: true,
+        countryTime: true,
         user: {
           select: {
             name: true,
@@ -102,6 +93,7 @@ export class CalendarService {
         templateId: row.templateId,
         template: row.template?.name ?? null,
         totalPatients: row._count.historySending ?? 0,
+        countryTime: row.countryTime,
         totalSending:
           sending.length > 0 && row.category === 'Programación'
             ? (sending.find((item) => item.calendarId === row.id)?._count
@@ -134,12 +126,7 @@ export class CalendarService {
   }
 
   async storeCalendar(user: number, dto: StoreCalendarDto) {
-    const whatsapp = await this.prisma.whatsapps.findFirst({
-      select: { country: { select: { name: true } } },
-      where: { id: dto.whatsappId },
-    });
-
-    const dateNow = dayjs().tz(countries.find((c) => c.country === whatsapp.country.name).timezone).format('YYYY-MM-DD HH:mm:ss');
+    const dateNow = dayjs().tz(dto.countryTime).format('YYYY-MM-DD HH:mm:ss');
 
     const newCalendar = await this.prisma.calendar.create({
       data: {
@@ -154,7 +141,8 @@ export class CalendarService {
         createdAt: new Date(dateNow),
         updatedAt: new Date(dateNow),
         status: 'Pendiente',
-        templateId: dto.templateId ?? null
+        templateId: dto.templateId ?? null,
+        countryTime: dto.countryTime,
       },
     });
 
@@ -175,12 +163,7 @@ export class CalendarService {
   }
 
   async updateCalendar(user: number, id: number, dto: UpdateCalendarDto) {
-    const whatsapp = await this.prisma.whatsapps.findFirst({
-      select: { country: { select: { name: true } } },
-      where: { id: dto.whatsappId },
-    });
-
-    const dateNow = dayjs().tz(countries.find((c) => c.country === whatsapp.country.name).timezone).format('YYYY-MM-DD HH:mm:ss');
+    const dateNow = dayjs().tz(dto.countryTime).format('YYYY-MM-DD HH:mm:ss');
 
     const updateCalendar = await this.prisma.calendar.update({
       where: {
@@ -197,6 +180,7 @@ export class CalendarService {
         userId: user,
         updatedAt: new Date(dateNow),
         status: 'Pendiente',
+        countryTime: dto.countryTime,
         templateId: dto.templateId ?? null,
       },
     });

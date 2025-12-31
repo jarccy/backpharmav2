@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { SendMessage, StoreMessage, UpdateMessage, detailTemplate, detailTemplateCalendar, sendMessageTask } from '../dto/message.dto';
+import { SendMessage, StoreMessage, UpdateMessage, detailTemplate, sendMessageTask } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
@@ -204,7 +204,7 @@ export class MessageService {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
       }));
 
-      console.log("response", response.data);
+      console.log("Meta Response", response.data);
 
       if (response.status === 200) {
         messageId = response.data.messages[0].id;
@@ -218,7 +218,7 @@ export class MessageService {
       };
 
     } catch (error) {
-      console.log(error.response.data);
+      console.log("Meta Error", error.response.data);
       return {
         sending: false,
         newId: null,
@@ -366,37 +366,29 @@ export class MessageService {
   async sendCalendarMessage(data: sendMessageTask) {
     let body: any = {};
     let messageId: string = "";
-    let getUrlImage: string = "";
-    let mediaType: string = "text";
 
-    console.log("data", data);
+    const template = data.template;
+    let componentt = JSON.parse(template.componentsSend);
 
-
-    // const template = JSON.parse(data.template) as detailTemplateCalendar;
-
-
-    // let componentt = JSON.parse(template.components);
-
-    // componentt.forEach((component) => {
-    //   component.parameters?.forEach((parameter) => {
-    //     if (parameter.type === 'image') { getUrlImage = parameter.image.link; mediaType = "image"; }
-    //     if (parameter.type === "text" && parameter.text === "{{1}}") { parameter.text = data.name }
-    //     else if (parameter.type === "text" && parameter.text === "{{2}}") { parameter.text = data.name }
-    //     else if (parameter.type === "text" && parameter.text === "{{3}}") { parameter.text = data.name }
-    //   });
-    // });
+    componentt.forEach((component) => {
+      component.parameters?.forEach((parameter) => {
+        if (parameter.type === "text" && parameter.text === "{{1}}") { parameter.text = data.name }
+        else if (parameter.type === "text" && parameter.text === "{{2}}") { parameter.text = data.name }
+        else if (parameter.type === "text" && parameter.text === "{{3}}") { parameter.text = data.name }
+      });
+    });
 
 
-    // body = {
-    //   "messaging_product": "whatsapp",
-    //   "to": data.number,
-    //   "type": "template",
-    //   "template": {
-    //     "name": template.name,
-    //     "language": { "code": template.language },
-    //     "components": componentt
-    //   }
-    // }
+    body = {
+      "messaging_product": "whatsapp",
+      "to": data.number,
+      "type": "template",
+      "template": {
+        "name": template.name,
+        "language": { "code": template.language },
+        "components": componentt
+      }
+    }
 
     let msg = data.message
 
@@ -408,37 +400,37 @@ export class MessageService {
     console.log("calendar-body", JSON.stringify(body, null, 2));
 
     try {
-      // const message = await this.prisma.messages.create({
-      //   data: {
-      //     messageId: null,
-      //     number: data.number,
-      //     body: data.message,
-      //     mediaType: mediaType,
-      //     mediaUrl: getUrlImage,
-      //     fromMe: 1,
-      //     peopleId: +data.peopleId,
-      //     createdAt: dayjs(data.createdAt).toDate(),
-      //     ack: 0,
-      //     isDelete: 0,
-      //     userId: +data.userId
-      //   },
-      // });
+      const message = await this.prisma.messages.create({
+        data: {
+          messageId: null,
+          number: data.number,
+          body: msg,
+          mediaType: data.file ? "image" : "text",
+          mediaUrl: data.file,
+          fromMe: 1,
+          peopleId: +data.peopleId,
+          createdAt: dayjs(data.createdAt).toDate(),
+          ack: 0,
+          isDelete: 0,
+          userId: +data.userId
+        },
+      });
 
-      // const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
-      //   headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
-      // }));
+      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
+      }));
 
-      // console.log("response", response.data);
+      console.log("Meta Response", response.data);
 
-      // if (response.status === 200) {
-      //   messageId = response.data.messages[0].id;
-      //   await this.prisma.messages.update({ where: { id: message.id }, data: { messageId } });
-      // }
+      if (response.status === 200) {
+        messageId = response.data.messages[0].id;
+        await this.prisma.messages.update({ where: { id: message.id }, data: { messageId } });
+      }
 
       return true;
 
     } catch (error) {
-      console.log(error);
+      console.log("Meta Error", error.response.data);
       return false;
     }
   }

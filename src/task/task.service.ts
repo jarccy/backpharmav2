@@ -31,11 +31,7 @@ export class TaskService {
     await Promise.all(
       countries.map(async (c) => {
         const localTime = dayjs().tz(c.timezone);
-        await this.findTaskCalendar(
-          localTime.format('YYYY-MM-DD'),
-          localTime.format('HH:mm'),
-          c.timezone,
-        );
+        await this.findTaskCalendar(localTime.format('YYYY-MM-DD'), localTime.format('HH:mm'), c.timezone);
       }),
     );
     this.logger.debug('Search Task all countries');
@@ -69,10 +65,7 @@ export class TaskService {
 
     if (!calendar) return;
 
-    await this.prisma.calendar.update({
-      where: { id: calendar.id },
-      data: { status: 'En Proceso' },
-    });
+    await this.prisma.calendar.update({ where: { id: calendar.id }, data: { status: 'En Proceso' }, });
 
     await this.prisma.notify.create({
       data: {
@@ -85,6 +78,11 @@ export class TaskService {
       },
     });
 
-    this.whatsappGateway.emitEvent('Notify', 'notify');
+    this.whatsappGateway.emitEvent('Notify', {
+      type: 'notify',
+      calendarId: calendar.id,
+      inProgress: calendar._count.historySending,
+      total: calendar._count.historySending
+    });
   }
 }

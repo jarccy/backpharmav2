@@ -44,13 +44,6 @@ export interface detailTemplate {
   }[] | null;
 }
 
-export interface detailTemplateCalendar {
-  templateId: string;
-  name: string;
-  language: string;
-  components: string;
-}
-
 //Send Message
 export interface SendMessage {
   temporalId: string;
@@ -64,15 +57,20 @@ export interface SendMessage {
 }
 
 //Send Message Task
+export interface detailTemplateCalendar {
+  name: string;
+  language: string;
+  componentsSend: string;
+}
+
 export interface sendMessageTask {
   number: string;
   userId: number;
   name: string;
-  language: string;
   message: string;
-  componentsSend: string;
-  mediaUrl?: string;
+  mediaUrl: string;
+  file: string;
   peopleId: number;
   createdAt: string;
-  template: detailTemplate;
+  template: detailTemplateCalendar;
 }
