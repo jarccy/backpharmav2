@@ -397,7 +397,7 @@ export class MessageService {
     if (msg.includes("{{3}}")) { msg = msg.replace("{{3}}", data.name) }
 
 
-    console.log("calendar-body", JSON.stringify(body, null, 2));
+    // console.log("calendar-body", JSON.stringify(body, null, 2));
 
     try {
       const message = await this.prisma.messages.create({
@@ -420,7 +420,7 @@ export class MessageService {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
       }));
 
-      console.log("Meta Response", response.data);
+      // console.log("Meta Response", response.data);
 
       if (response.status === 200) {
         messageId = response.data.messages[0].id;

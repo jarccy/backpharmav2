@@ -11,7 +11,6 @@ import { CalendarModule } from './calendar/calendar.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
-import { TaskModule } from './task/task.module';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { TaskModule } from './task/task.module';
     BranchModule,
     CompanyModule,
     SettingModule,
-    TaskModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', '..', 'public'),
       serveRoot: '/public',

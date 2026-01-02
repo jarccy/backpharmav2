@@ -29,6 +29,8 @@ export class CalendarController {
 
   @Get(':id')
   getPatientCalendarId(@Param('id') id: string) {
+    console.log("hereeeeeee");
+
     return this.calendarService.getPatientCalendarId(+id);
   }
 

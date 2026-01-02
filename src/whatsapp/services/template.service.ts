@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma.service';
 import { GetDTO } from '../../common/dto/params-dto';
 import { createTemplate } from '../dto/templates.dto';
 import { diskStorage, StorageEngine } from 'multer';
+import { downloadAndSaveImage } from '../functions';
 
 @Injectable()
 export class TemplateService {
@@ -88,9 +89,12 @@ export class TemplateService {
         metaTemplateId: data.metaTemplateId,
       },
     });
-    if (veryfyMetaId) {
-      console.log('Plantilla ya existe');
-      return true;
+
+    if (veryfyMetaId) { return true; }
+
+    let image = null;
+    if (data.file) {
+      image = await downloadAndSaveImage(data.file, './public/templates');
     }
 
     await this.prisma.templates.create({
@@ -98,7 +102,7 @@ export class TemplateService {
         ...data,
         userId: user,
         contentType: data.contentType,
-        file: data.file,
+        file: image,
       },
     });
 

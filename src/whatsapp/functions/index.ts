@@ -1,5 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+
+const httpService = new HttpService();
 
 interface message {
   id: string;
@@ -28,6 +32,12 @@ export const SaveImage = async (file: string, dirPath: string) => {
 
   return `${process.env.BASE_URL}/${filePath}`;
 };
+
+export const downloadAndSaveImage = async (url: string, dirPath: string): Promise<string> => {
+  const response = await firstValueFrom(httpService.get(url, { responseType: 'arraybuffer' }));
+  const base64Image = Buffer.from(response.data, 'binary').toString('base64');
+  return SaveImage(base64Image, dirPath);
+}
 
 
 export const parseMessage = (message: any): message => {

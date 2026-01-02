@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { Cron } from '@nestjs/schedule';
 import { WhatsappGateway } from '../websockets/socket.gateaway';
 import { MessageService } from '../services/message.service';
+import { Cron, CronExpression } from '@nestjs/schedule';
 const dayjs = require('dayjs');
 
 const countries = [
@@ -22,12 +22,79 @@ export class TaskWhatsappService {
         private readonly messageService: MessageService,
     ) { }
 
+    private logger = new Logger(TaskWhatsappService.name);
     private processingCalendars = new Set<number>()
 
-    @Cron('*/70 * * * * *')
+    @Cron(CronExpression.EVERY_MINUTE)
+    // @Cron(CronExpression.EVERY_10_SECONDS)
     async taskMessage() {
         // await Promise.all(countries.map(async (c) => { this.SendTest(c.timezone); }));
-        await Promise.all(countries.map(async (c) => { this.SendMessage(c.timezone); }));
+
+        await Promise.all(
+            countries.map(async (c) => {
+                const localTime = dayjs().tz(c.timezone);
+                await this.findPendingAndSendMessages(localTime.format('YYYY-MM-DD'), localTime.format('HH:mm'), c.timezone);
+            }),
+        );
+        this.logger.debug('Search All Countries');
+    }
+
+    async findPendingAndSendMessages(date: string, hour: string, timezone: string) {
+        const verify = await this.findTaskCalendar(date, hour, timezone);
+        if (!verify) { return; }
+
+        await this.SendMessage(timezone);
+    }
+
+    async findTaskCalendar(date: string, hour: string, timezone: string): Promise<boolean> {
+        const calendar = await this.prisma.calendar.findFirst({
+            where: {
+                deleted: false,
+                category: 'Programación',
+                status: { not: 'Finalizado' },
+                startDate: new Date(date),
+                timeStart: hour,
+                countryTime: timezone,
+            },
+            select: {
+                id: true,
+                userId: true,
+                _count: {
+                    select: {
+                        historySending: true,
+                    },
+                },
+                template: {
+                    select: {
+                        name: true,
+                    },
+                },
+            },
+        });
+
+        if (!calendar) { return false; }
+
+        await this.prisma.calendar.update({ where: { id: calendar.id }, data: { status: 'En Proceso' }, });
+
+        await this.prisma.notify.create({
+            data: {
+                title: `Envio de Mensajes a ${calendar._count.historySending} personas`,
+                message: `Se ha iniciado el envio de mensajes a las ${hour} del ${date} con la plantilla ${calendar.template.name}`,
+                status: 'En Proceso',
+                type: 'Mensajes Programados',
+                userId: calendar.userId,
+                createdAt: new Date(`${date} ${hour}`),
+            },
+        });
+
+        this.whatsappGateway.emitEvent('Notify', {
+            type: 'notify',
+            calendarId: calendar.id,
+            inProgress: calendar._count.historySending,
+            total: calendar._count.historySending
+        });
+
+        return true;
     }
 
     async SendMessage(timezone: string) {
@@ -62,13 +129,10 @@ export class TaskWhatsappService {
 
         // Si ya se esta procesando el calendario, no hacer nada
         const calendarId = peopleList[0].calendar.id;
-        if (this.processingCalendars.has(calendarId)) {
-            console.log('exists', calendarId);
-            return;
-        }
+        if (this.processingCalendars.has(calendarId)) { return; }
+
         // Agregar el calendario a la lista de calendarios en proceso
         this.processingCalendars.add(calendarId);
-        console.log('not exists', calendarId);
 
         // Procesar uno por uno con delay
         for (let i = 0; i < peopleList.length; i++) {
@@ -130,7 +194,9 @@ export class TaskWhatsappService {
             }
 
             // Esperar 10 segundos antes de enviar al siguiente
-            await new Promise((resolve) => setTimeout(resolve, 10000));
+            if (i < peopleList.length - 1) {
+                await new Promise((resolve) => setTimeout(resolve, 10000));
+            }
         }
     }
 
