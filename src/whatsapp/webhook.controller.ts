@@ -15,7 +15,7 @@ export class WebhookController {
 
     constructor(private readonly messageService: MessageService) { }
 
-    // ✅ Verificación inicial del webhook (Meta lo requiere)
+    // Verificación inicial del webhook (Meta lo requiere)
     @Get()
     verify(@Req() req: Request, @Res() res: Response) {
         const VERIFY_TOKEN = '36g1isPvokmmHVSSRKT5ktqu8Qk_2zvUu8j3t3So2ogV5343X'; // el mismo que configures en Meta

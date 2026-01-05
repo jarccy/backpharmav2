@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
 import { GetDTO } from '../../common/dto/params-dto';
-import { createTemplate } from '../dto/templates.dto';
+import { createTemplate, updateMetaTemplate } from '../dto/templates.dto';
 import { diskStorage, StorageEngine } from 'multer';
 import { downloadAndSaveImage } from '../functions';
 
@@ -69,15 +69,26 @@ export class TemplateService {
     return 'Plantilla registrado exitosamente';
   }
 
-  async updateTemplate(id: number, data: createTemplate, user: number, url: string) {
+  // async updateTemplate(id: number, data: createTemplate, user: number, url: string) {
+  //   await this.prisma.templates.update({
+  //     where: { id },
+  //     data: {
+  //       ...data,
+  //       userId: user,
+  //       contentType: data.contentType,
+  //       file: data.file,
+  //     },
+  //   });
+
+  //   return 'Plantilla actualizado exitosamente';
+  // }
+
+  async updateMetaTemplate(id: number, data: updateMetaTemplate, user: number) {
     await this.prisma.templates.update({
       where: { id },
       data: {
-        ...data,
-        userId: user,
-        contentType: data.contentType,
-        file: data.file,
-      },
+        ...data, userId: user
+      }
     });
 
     return 'Plantilla actualizado exitosamente';

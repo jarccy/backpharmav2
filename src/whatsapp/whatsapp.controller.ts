@@ -18,7 +18,7 @@ import { MessageService } from './services/message.service';
 import { TemplateService } from './services/template.service';
 import { ActiveUser } from 'src/common/decorators/active-user.decorator';
 import { UserActiveI } from 'src/common/interfaces/user-active.interface';
-import { createTemplate } from './dto/templates.dto';
+import { createTemplate, updateMetaTemplate } from './dto/templates.dto';
 import { GetDTO } from '../common/dto/params-dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -128,42 +128,55 @@ export class WhatsappController {
         );
     }
 
-    @Put('templates/:id')
-    @UseInterceptors(
-        FileInterceptor('file', {
-            storage: diskStorage({
-                destination: (req, file, callback) => {
-                    const dirPath = './public/templates';
-                    if (!fs.existsSync(dirPath)) {
-                        fs.mkdirSync(dirPath, { recursive: true });
-                    }
-                    callback(null, dirPath);
-                },
-                filename: (req, file, callback) => {
-                    const uniqueSuffix =
-                        Date.now() + '-' + Math.round(Math.random() * 1e9);
-                    const originalName = file.originalname.replace(/\s/g, '_');
-                    callback(null, `${uniqueSuffix}-${originalName}`);
-                },
-            }),
-        }),
-    )
-    updateTemplate(
-        @UploadedFile() file: Express.Multer.File,
-        @ActiveUser() user: UserActiveI,
-        @Param('id') id: string,
-        @Body() updateTemplateDto: createTemplate,
-    ) {
-        let fileUrl = null;
-        if (file) {
-            fileUrl = `${process.env.BASE_URL}/public/templates/${file.filename}`;
-        }
+    // @Put('templates/:id')
+    // @UseInterceptors(
+    //     FileInterceptor('file', {
+    //         storage: diskStorage({
+    //             destination: (req, file, callback) => {
+    //                 const dirPath = './public/templates';
+    //                 if (!fs.existsSync(dirPath)) {
+    //                     fs.mkdirSync(dirPath, { recursive: true });
+    //                 }
+    //                 callback(null, dirPath);
+    //             },
+    //             filename: (req, file, callback) => {
+    //                 const uniqueSuffix =
+    //                     Date.now() + '-' + Math.round(Math.random() * 1e9);
+    //                 const originalName = file.originalname.replace(/\s/g, '_');
+    //                 callback(null, `${uniqueSuffix}-${originalName}`);
+    //             },
+    //         }),
+    //     }),
+    // )
+    // updateTemplate(
+    //     @UploadedFile() file: Express.Multer.File,
+    //     @ActiveUser() user: UserActiveI,
+    //     @Param('id') id: string,
+    //     @Body() updateTemplateDto: createTemplate,
+    // ) {
+    //     let fileUrl = null;
+    //     if (file) {
+    //         fileUrl = `${process.env.BASE_URL}/public/templates/${file.filename}`;
+    //     }
 
-        return this.templateService.updateTemplate(
+    //     return this.templateService.updateTemplate(
+    //         +id,
+    //         updateTemplateDto,
+    //         +user.id,
+    //         fileUrl,
+    //     );
+    // }
+
+    @Put('templates/:id')
+    updateMetaTemplate(
+        @Param('id') id: string,
+        @ActiveUser() user: UserActiveI,
+        @Body() updateTemplateDto: updateMetaTemplate,
+    ) {
+        return this.templateService.updateMetaTemplate(
             +id,
             updateTemplateDto,
             +user.id,
-            fileUrl,
         );
     }
 

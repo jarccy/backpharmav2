@@ -17,3 +17,8 @@ export class createTemplate {
   subCategory?: string;
   file?: string;
 }
+
+export class updateMetaTemplate {
+  name: string;
+  url?: string;
+}
