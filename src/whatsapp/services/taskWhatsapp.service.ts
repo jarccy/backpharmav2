@@ -113,6 +113,7 @@ export class TaskWhatsappService {
                         template: {
                             select: {
                                 name: true,
+                                metaName: true,
                                 language: true,
                                 componentsSend: true,
                                 message: true,
@@ -150,7 +151,7 @@ export class TaskWhatsappService {
                 peopleId: +person.patientId,
                 createdAt: date,
                 template: {
-                    name: person.calendar.template.name,
+                    name: person.calendar.template.metaName,
                     language: person.calendar.template.language,
                     componentsSend: person.calendar.template.componentsSend,
                 },
