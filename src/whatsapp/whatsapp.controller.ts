@@ -41,11 +41,6 @@ export class WhatsappController {
         return this.whatsappService.getWhatsapps();
     }
 
-    @Get('/active')
-    async whatsappList() {
-        return this.whatsappService.whatsappList();
-    }
-
     @Post()
     async createWhatsapp(@Body() data: Whatsapp) {
         return this.whatsappService.createWhatsapp(data);
@@ -57,13 +52,6 @@ export class WhatsappController {
         @Body() data: Whatsapp,
     ) {
         return this.whatsappService.updateWhatsapp(+id, data);
-    }
-
-    @Post('/disconect/:id')
-    async disconectWhatsapp(
-        @Param('id') id: number,
-    ) {
-        return this.whatsappService.disconectWhatsapp(+id);
     }
 
     //Chats

@@ -65,19 +65,20 @@ model rolePermission {
 }
 
 model whatsapps {
-  id        Int      @id @default(autoincrement())
-  name      String
-  session   String?  @db.Text
-  qrcode    String?  @db.Text
-  status    String?
-  battery   String?
-  plugged   Boolean?
-  retries   Int?
-  countryId Int
-  country   country  @relation(fields: [countryId], references: [id])
+  id           Int     @id @default(autoincrement())
+  name         String
+  number       String? @db.Text
+  metaToken    String? @db.Text
+  templateCode String? @db.Text
+  messageCode  String? @db.Text
+  timezone     String?
+  countryId    Int?
+  status       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now())
+
+  country country? @relation(fields: [countryId], references: [id])
 }
 
 model messages {

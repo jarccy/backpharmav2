@@ -12,21 +12,21 @@ import * as fs from 'fs';
 
 @Controller('webhook')
 export class WebhookController {
+    private jwtSecret = process.env.JWT_SECRET;
 
     constructor(private readonly messageService: MessageService) { }
 
     // Verificación inicial del webhook (Meta lo requiere)
     @Get()
     verify(@Req() req: Request, @Res() res: Response) {
-        const VERIFY_TOKEN = '36g1isPvokmmHVSSRKT5ktqu8Qk_2zvUu8j3t3So2ogV5343X'; // el mismo que configures en Meta
-        const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
-        const challenge = req.query['hub.challenge'];
-        console.log("verify", res.json());
+        const VERIFY_TOKEN = this.jwtSecret;
 
+        const mode = req.query['hub.mode']; const token = req.query['hub.verify_token'];
+        const challenge = req.query['hub.challenge'];
+        console.log("verify", { mode, token, challenge });
 
         if (mode && token && mode === 'subscribe' && token === VERIFY_TOKEN) {
-            return res.status(200).send(challenge);
+            return res.status(200).send(challenge.toString());
         } else {
             return res.sendStatus(403);
         }
@@ -48,8 +48,8 @@ export class WebhookController {
                 const messageValues = parseMessage(message);
                 const contactValues = parseContact(value?.contacts?.[index]);
 
-                console.log('📩 Mensaje entrante:', messageValues);
-                console.log('👤 Contacto entrante:', contactValues);
+                console.log('Mensaje entrante:', messageValues);
+                console.log('Contacto entrante:', contactValues);
 
                 let newMessage = {
                     messageId: messageValues.id,
@@ -75,7 +75,7 @@ export class WebhookController {
                     status: status.status,
                     isDelete: 0,
                 }
-                console.log(`📊 Estado de mensaje [${index}]:`, status);
+                console.log(`Estado de mensaje [${index}]:`, status);
 
                 this.messageService.updateMessageStatus(newValues as any);
             });
@@ -83,7 +83,7 @@ export class WebhookController {
 
         // Actualización de plantilla
         if (changes?.field === 'message_template_status_update') {
-            console.log('📝 Template updated:', value);
+            console.log('Template updated:', value);
         }
 
         return res.sendStatus(200); // WhatsApp requiere 200 OK

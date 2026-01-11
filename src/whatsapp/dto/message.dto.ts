@@ -74,3 +74,12 @@ export interface sendMessageTask {
   createdAt: string;
   template: detailTemplateCalendar;
 }
+
+//Config Whatsapp
+export interface configWhatsapp {
+  number: string;
+  metaToken: string;
+  templateCode: string;
+  messageCode: string;
+  timezone: string;
+}

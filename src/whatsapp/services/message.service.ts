@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma.service';
-import { SendMessage, StoreMessage, UpdateMessage, detailTemplate, sendMessageTask } from '../dto/message.dto';
+import { SendMessage, StoreMessage, UpdateMessage, detailTemplate, sendMessageTask, configWhatsapp } from '../dto/message.dto';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
@@ -10,14 +10,26 @@ const dayjs = require('dayjs');
 
 
 @Injectable()
-export class MessageService {
+export class MessageService implements OnModuleInit {
   private readonly url = process.env.URL;
-  private readonly token = process.env.WHATSAPP_TOKEN;
-  private readonly urlTemplates = process.env.URT;
+  private configWhatsapp: configWhatsapp;
 
   constructor(private prisma: PrismaService, private httpService: HttpService,
     private ws: WhatsappGateway
   ) { }
+
+  async onModuleInit() {
+    this.configWhatsapp = await this.prisma.whatsapps.findFirst({
+      select: {
+        number: true,
+        metaToken: true,
+        templateCode: true,
+        messageCode: true,
+        timezone: true,
+      }
+    });
+    return this.configWhatsapp;
+  }
 
   async getChats(dto: GetDTO) {
     const { search, perPage, page } = dto;
@@ -200,8 +212,8 @@ export class MessageService {
         },
       });
 
-      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
+      const response = await firstValueFrom(this.httpService.post(this.url + this.configWhatsapp.messageCode + "/messages", body, {
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
       }));
 
       console.log("Meta Response", response.data);
@@ -346,20 +358,19 @@ export class MessageService {
   }
 
   async getTemplates() {
-    // const templates = await this.prisma.templates.findMany({
-    //   select: {
-    //     id: true,
-    //     name: true,
-    //   },
-    // });
-    const response = await firstValueFrom(this.httpService.get(this.urlTemplates + "/message_templates", {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.token}`,
-      },
-    }));
+    try {
+      const response = await firstValueFrom(this.httpService.get(this.url + this.configWhatsapp.templateCode + "/message_templates", {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.configWhatsapp.metaToken}`,
+        },
+      }));
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      console.log("Meta Error", error.response.data);
+      return false;
+    }
   }
 
   //Sending for Calendar
@@ -416,8 +427,8 @@ export class MessageService {
         },
       });
 
-      const response = await firstValueFrom(this.httpService.post(this.url + "/messages", body, {
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.token}` },
+      const response = await firstValueFrom(this.httpService.post(this.url + this.configWhatsapp.messageCode + "/messages", body, {
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
       }));
 
       // console.log("Meta Response", response.data);
