@@ -81,12 +81,11 @@ export class WebhookController {
             });
         }
 
-        // Actualización de plantilla
         if (changes?.field === 'message_template_status_update') {
             console.log('Template updated:', value);
         }
 
-        return res.sendStatus(200); // WhatsApp requiere 200 OK
+        return res.sendStatus(200);
     }
 
 
@@ -117,13 +116,15 @@ export class WebhookController {
         @ActiveUser() user: UserActiveI,
         @Body() body: SendMessage,
         @Res() res: Response) {
+        let fileUrl: string | null = null;
+        if (file) {
+            fileUrl = file.path;
+        }
 
-        const response = await this.messageService.sendMessage(+user.id, body);
+        const response = await this.messageService.sendMessage(+user.id, body, fileUrl);
         console.log("Mensaje enviado:", response);
 
-
         return res.json(response);
-        // return res.sendStatus(200); // WhatsApp requiere 200 OK
     }
 
     @UseGuards(AuthGuard)

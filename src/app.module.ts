@@ -24,7 +24,7 @@ import { join } from 'path';
     CompanyModule,
     SettingModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', '..', 'public'),
+      rootPath: join(process.cwd(), 'public'),
       serveRoot: '/public',
     }),
     ScheduleModule.forRoot(),

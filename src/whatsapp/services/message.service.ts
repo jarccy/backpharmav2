@@ -6,6 +6,8 @@ import { Prisma } from '@prisma/client';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { WhatsappGateway } from '../websockets/socket.gateaway';
+import * as fs from 'fs';
+import * as path from 'path';
 const dayjs = require('dayjs');
 
 
@@ -154,13 +156,70 @@ export class MessageService implements OnModuleInit {
     return newContact;
   }
 
+  //Get MimeType
+  getMimeType(fileName: string): string {
+    const ext = path.extname(fileName).toLowerCase();
+    switch (ext) {
+      case '.jpg':
+      case '.jpeg': return 'image/jpeg';
+      case '.png': return 'image/png';
+      case '.webp': return 'image/webp';
+      case '.mp4': return 'video/mp4';
+      case '.3gp': return 'video/3gpp';
+      case '.pdf': return 'application/pdf';
+      case '.doc': return 'application/msword';
+      case '.docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case '.xls': return 'application/vnd.ms-excel';
+      case '.xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case '.ppt': return 'application/vnd.ms-powerpoint';
+      case '.pptx': return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      case '.txt': return 'text/plain';
+      default: return 'application/octet-stream';
+    }
+  }
+
+  //Upload Media
+  async uploadMedia(file: string, mediaType: string): Promise<string | null> {
+    try {
+      const filePath = path.join(process.cwd(), file);
+      if (!fs.existsSync(filePath)) {
+        console.error("File not found for upload:", filePath);
+        return null;
+      }
+
+      const formData = new FormData();
+      const fileBuffer = fs.readFileSync(filePath);
+      const mimeType = this.getMimeType(filePath);
+      const blob = new Blob([fileBuffer], { type: mimeType });
+      formData.append('file', blob, path.basename(filePath));
+      formData.append('type', mediaType);
+      formData.append('messaging_product', 'whatsapp');
+
+      const response = await firstValueFrom(this.httpService.post(
+        `${this.url}/${this.configWhatsapp.messageCode}/media`,
+        formData,
+        {
+          headers: {
+            "Authorization": `Bearer ${this.configWhatsapp.metaToken}`,
+          }
+        }
+      ));
+
+      console.log("Meta Media Upload Response:", response.data);
+      return response.data.id;
+    } catch (error) {
+      console.error("Error uploading media to Meta:", error.response?.data || error.message);
+      return null;
+    }
+  }
+
   //Sending Message
-  async sendMessage(userId: number, data: SendMessage) {
+  async sendMessage(userId: number, data: SendMessage, file: string | null) {
     let body: any = {};
     let messageId: string = "";
     let getUrlImage: string = "";
 
-    if (data.template) {
+    if (data.template && data.template !== 'null') {
       const template = JSON.parse(data.template) as detailTemplate;
 
       body = {
@@ -182,6 +241,26 @@ export class MessageService implements OnModuleInit {
         });
       });
 
+    } else if (file) {
+      const mediaType = data.mediaType || 'image';
+      const metaMediaId = await this.uploadMedia(file, mediaType);
+
+      if (metaMediaId) {
+        body = {
+          "messaging_product": "whatsapp",
+          "to": data.number,
+          "type": mediaType,
+          [mediaType]: {
+            "id": metaMediaId,
+            ...(data.message ? { "caption": data.message } : {})
+          }
+        }
+      } else {
+        throw new Error("Failed to upload media to Meta");
+      }
+
+      getUrlImage = `${process.env.BASE_URL}/${file.replace(/\\/g, '/')}`;
+      console.log("Media Local Link:", getUrlImage);
     } else {
       body = {
         "messaging_product": "whatsapp",
@@ -193,7 +272,7 @@ export class MessageService implements OnModuleInit {
       }
     }
 
-    console.log("body++++", JSON.stringify(body, null, 2));
+    // console.log("body++++", JSON.stringify(body, null, 2));
 
     try {
       const message = await this.prisma.messages.create({
@@ -269,9 +348,49 @@ export class MessageService implements OnModuleInit {
     return people.id;
   }
 
+  async downloadAndSaveMedia(mediaId: string): Promise<string | null> {
+    try {
+      const metaUrl = `${this.url}/${mediaId}`;
+      const response = await firstValueFrom(this.httpService.get(metaUrl, {
+        headers: { "Authorization": `Bearer ${this.configWhatsapp.metaToken}` }
+      }));
+
+      const downloadUrl = response.data.url;
+      const mimeType = response.data.mime_type;
+      const extension = mimeType.split('/')[1]?.split(';')[0] || 'jpg';
+
+      const mediaResponse = await firstValueFrom(this.httpService.get(downloadUrl, {
+        headers: { "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
+        responseType: 'arraybuffer'
+      }));
+
+      const dirPath = path.join(process.cwd(), 'public', 'messages', 'received');
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+      }
+
+      const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${extension}`;
+      const filePath = path.join(dirPath, fileName);
+      fs.writeFileSync(filePath, Buffer.from(mediaResponse.data));
+
+      return `public/messages/received/${fileName}`;
+    } catch (error) {
+      console.error("Error downloading media from Meta:", error.response?.data || error.message);
+      return null;
+    }
+  }
+
   //Create new Message
   async createMessage(data: StoreMessage) {
     const peopleId = await this.createPeople({ number: data.number, name: data.name });
+
+    let mediaUrl = data.mediaUrl;
+    if (data.mediaId) {
+      const localMediaUrl = await this.downloadAndSaveMedia(data.mediaId);
+      if (localMediaUrl) {
+        mediaUrl = `${process.env.BASE_URL}/${localMediaUrl}`;
+      }
+    }
 
     const message = await this.prisma.messages.create({
       data: {
@@ -283,6 +402,7 @@ export class MessageService implements OnModuleInit {
         fromMe: 0,
         peopleId: peopleId,
         ack: 1,
+        mediaUrl: mediaUrl,
         isDelete: 0,
         mediaId: data.mediaId,
         createdAt: new Date()
@@ -299,7 +419,7 @@ export class MessageService implements OnModuleInit {
       ack: 1,
       fromMe: 0,
       mediaType: data.mediaType,
-      mediaUrl: data.mediaUrl,
+      mediaUrl: mediaUrl,
       isDelete: 0,
       createdAt: message.createdAt,
     }
@@ -411,12 +531,25 @@ export class MessageService implements OnModuleInit {
     // console.log("calendar-body", JSON.stringify(body, null, 2));
 
     try {
+      let mediaType = data.file ? (data.file.includes('.mp4') || data.file.includes('.avi') ? 'video' : 'image') : "text";
+      let metaMediaId: string | null = null;
+
+      if (data.file && mediaType !== "text") {
+        // En sendCalendarMessage, data.file suele ser una URL o path. 
+        // Si ya es una URL pública que no sea del servidor actual, Meta podría bajarla.
+        // Pero para ser consistentes, si es local (public/...), lo subimos.
+        const localPath = data.file.includes('public/') ? data.file.split('public/')[1] : null;
+        if (localPath) {
+          metaMediaId = await this.uploadMedia(`public/${localPath}`, mediaType);
+        }
+      }
+
       const message = await this.prisma.messages.create({
         data: {
           messageId: null,
           number: data.number,
           body: msg,
-          mediaType: data.file ? "image" : "text",
+          mediaType: mediaType,
           mediaUrl: data.file,
           fromMe: 1,
           peopleId: +data.peopleId,
@@ -426,6 +559,27 @@ export class MessageService implements OnModuleInit {
           userId: +data.userId
         },
       });
+
+      // Si tenemos mediaId, lo usamos en el template si aplica o en el payload
+      // En este caso es un template, Meta maneja las imágenes de template por link o media_id en los componentes
+      if (metaMediaId) {
+        componentt.forEach((component) => {
+          if (component.type === 'header' && component.parameters) {
+            component.parameters.forEach((param) => {
+              if (param.type === 'image') {
+                delete param.image.link;
+                param.image.id = metaMediaId;
+              } else if (param.type === 'video') {
+                delete param.video.link;
+                param.video.id = metaMediaId;
+              }
+            });
+          }
+        });
+
+        // Actualizar el body con los componentes modificados
+        body.template.components = componentt;
+      }
 
       const response = await firstValueFrom(this.httpService.post(this.url + this.configWhatsapp.messageCode + "/messages", body, {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
