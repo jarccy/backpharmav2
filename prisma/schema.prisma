@@ -85,8 +85,7 @@ model messages {
   id        Int     @id @default(autoincrement())
   messageId String? @db.Text
   body      String  @db.LongText
-  ack       Int?    @default(0) //0 no resibido, 1 resibido
-  read      Int?    @default(0) //0 no leido, 1 leido
+  ack       Int?    @default(0) //-1 enviado, 0 no resibido, 1 resibido, 2 leido
   mediaType String
   mediaId   String? @db.Text
   mediaUrl  String? @db.LongText
@@ -103,6 +102,19 @@ model messages {
 
   userId Int?
   user   users? @relation(fields: [userId], references: [id])
+}
+
+model messageStatus {
+  id           Int      @id @default(autoincrement())
+  messageId    String?  @db.Text
+  status       String
+  recipientId  String
+  pricing      String   @db.Text
+  billing      Boolean?
+  pricingModel String?
+  category     String?
+  type         String?
+  createdAt    DateTime @default(now())
 }
 
 model templates {
