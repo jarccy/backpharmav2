@@ -5,11 +5,14 @@ import { Prisma } from '@prisma/client';
 import * as ExcelJS from 'exceljs';
 import { UpdatePeopleDto } from './dto/update-people.dto';
 import { StorePeopleDto } from './dto/store-people.dto';
-const dayjs = require('dayjs');
+import { WhatsappGateway } from '../whatsapp/websockets/socket.gateaway';
+import * as dayjs from 'dayjs';
+import * as utc from 'dayjs/plugin/utc';
+dayjs.extend(utc);
 
 @Injectable()
 export class PeopleService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private ws: WhatsappGateway) { }
 
   async findAll(dto: GetDTO) {
     const {
@@ -95,7 +98,7 @@ export class PeopleService {
       include: { users: { select: { name: true } } },
     })
 
-    const relation = await this.prisma.relationPdv.findFirst({
+    const relation: any = await this.prisma.relationPdv.findFirst({
       select: {
         id: true,
         pointSale: { select: { name: true, id: true } },
@@ -446,4 +449,110 @@ export class PeopleService {
     };
   }
 
+  //import people from excel
+  async importPeopleFromExcel(userId: number, file: Express.Multer.File) {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer as any);
+    const worksheet = workbook.getWorksheet(1);
+
+    const lastPerson = await this.prisma.people.findFirst({
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+    let currentId = lastPerson?.id || 0;
+
+    const lastRelation = await this.prisma.relationPdv.findFirst({
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    });
+    let currentRelationId = lastRelation?.id || 0;
+
+    // Process in background
+    (async () => {
+      try {
+        const peopleToCreate = [];
+        const relationsToCreate = [];
+
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // Skip header
+
+          // Get values safely
+          const name = row.getCell(1).value?.toString()?.trim();
+          const phone = row.getCell(2).value?.toString()?.trim();
+          const documentNumber = row.getCell(3).value?.toString()?.trim();
+          const countryIdValue = row.getCell(4).value;
+          const countryId = countryIdValue ? Number(countryIdValue) : null;
+
+          if (!name) return;
+
+          currentId++;
+          currentRelationId++;
+
+          peopleToCreate.push({
+            id: currentId,
+            name,
+            phone: phone || null,
+            documentNumber: documentNumber || null,
+            countryId: isNaN(countryId) ? null : countryId,
+            peopleStartDate: new Date(),
+            validatedBy: userId,
+          });
+
+          relationsToCreate.push({
+            id: currentRelationId,
+            peopleId: currentId,
+            status: true,
+            createdAt: new Date(),
+          });
+        });
+
+        if (peopleToCreate.length === 0) {
+          await this.prisma.notify.create({
+            data: {
+              title: 'Error en Importación',
+              message: 'No se encontraron datos válidos en el archivo.',
+              type: 'error',
+              status: 'new',
+              userId,
+            },
+          });
+          return false;
+        }
+
+        // Transaction for atomicity (Rollback on failure)
+        await this.prisma.$transaction(async (tx) => {
+          await tx.people.createMany({ data: peopleToCreate });
+          await tx.relationPdv.createMany({ data: relationsToCreate as any });
+        });
+
+        await this.prisma.notify.create({
+          data: {
+            title: 'Importación Exitosa',
+            message: `Se han importado ${peopleToCreate.length} personas correctamente.`,
+            type: 'success',
+            status: 'new',
+            userId,
+          },
+        });
+      } catch (error) {
+        console.log('Error importing people:', error);
+        await this.prisma.notify.create({
+          data: {
+            title: 'Error en Importación',
+            message: `No se pudo completar la importación. Error: ${error.message || 'Error desconocido'}. Se realizó un rollback.`,
+            type: 'error',
+            status: 'new',
+            userId,
+          },
+        });
+      } finally {
+        this.ws.emitEvent('Notify', {
+          type: 'notify'
+        });
+      }
+
+    })();
+
+    return 'La importación ha comenzado en segundo plano.';
+  }
 }

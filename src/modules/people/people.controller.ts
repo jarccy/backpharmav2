@@ -8,7 +8,10 @@ import {
   Query,
   Res,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AuthGuard } from '../../auth/guard/auth.guard';
 import { GetDTO } from '../../common/dto/params-dto';
 import { Response } from 'express';
@@ -17,10 +20,6 @@ import { UpdatePeopleDto } from './dto/update-people.dto';
 import { StorePeopleDto } from './dto/store-people.dto';
 import { ActiveUser } from '../../common/decorators/active-user.decorator';
 import { UserActiveI } from '../../common/interfaces/user-active.interface';
-// import { CreateUserDto } from './dto/dependent/create-dependent.dto';
-// import { ActiveUser } from '../common/decorators/active-user.decorator';
-// import { UserActiveI } from 'src/common/interfaces/user-active.interface';
-// import { CreateRoleDto } from './dto/dependent/dependent-dependent.dto';
 
 @UseGuards(AuthGuard)
 @Controller('people')
@@ -74,5 +73,15 @@ export class PeopleController {
   @Get('/filter/select')
   findPeopleSelect(@Query() dto: GetDTO) {
     return this.peopleService.findPeopleSelect(dto);
+  }
+
+  //import people from excel
+  @Post('/import/data')
+  @UseInterceptors(FileInterceptor('file'))
+  importPeople(
+    @ActiveUser() user: UserActiveI,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.peopleService.importPeopleFromExcel(+user.id, file);
   }
 }
