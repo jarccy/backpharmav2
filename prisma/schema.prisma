@@ -188,6 +188,18 @@ model notify {
   createdAt DateTime @default(now())
 }
 
+model detailsContact {
+  id            Int     @id @default(autoincrement())
+  contactId     Int?
+  number        String? @db.Text
+  profilePicUrl String? @db.LongText
+  anotherName   String? @db.Text
+  about         String? @db.Text
+  observation   String? @db.LongText
+
+  createdAt DateTime @default(now())
+}
+
 //Mapping Tables
 model country {
   id        Int         @id @map("id")

@@ -23,7 +23,7 @@ import { GetDTO } from '../../common/dto/params-dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import * as fs from 'fs';
-// import { StoreMessage } from './dto/message.dto';
+import { storeDetailsContact, getDetailsContact } from './dto/contact.dto';
 
 @UseGuards(AuthGuard)
 @Controller('connection')
@@ -174,6 +174,22 @@ export class WhatsappController {
         @Body() createTemplateDto: createTemplate,
     ) {
         return this.templateService.syncTemplates(createTemplateDto, +user.id);
+    }
+
+    //Details Contact
+    @Get('contact/details')
+    async getDetailsContact(@Query() dto: getDetailsContact) {
+        return this.contactService.getDetailsContact(dto);
+    }
+
+    @Post('contact/details')
+    async createDetailsContact(@Body() data: storeDetailsContact) {
+        return this.contactService.createDetailsContact(data);
+    }
+
+    @Put('contact/details/:id')
+    async updateDetailsContact(@Param('id') id: number, @Body() data: storeDetailsContact) {
+        return this.contactService.updateDetailsContact(+id, data);
     }
 }
 

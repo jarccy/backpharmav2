@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../prisma.service';
-import { Contact } from '../dto/contact.dto';
+import { Contact, storeDetailsContact, getDetailsContact } from '../dto/contact.dto';
 
 @Injectable()
 export class ContactService {
@@ -48,5 +48,26 @@ export class ContactService {
       return null;
     }
     return peopleId.id;
+  }
+
+  //details contact
+  async getDetailsContact(data: getDetailsContact) {
+    return this.prisma.detailsContact.findFirst({
+      where: { contactId: +data.contactId, number: data.number },
+    });
+  }
+
+  async createDetailsContact(data: storeDetailsContact) {
+    await this.prisma.detailsContact.create({ data: { ...data } });
+    return true;
+  }
+
+  async updateDetailsContact(id: number, data: storeDetailsContact) {
+    await this.prisma.detailsContact.update({
+      where: { id },
+      data: { ...data },
+    });
+
+    return true;
   }
 }

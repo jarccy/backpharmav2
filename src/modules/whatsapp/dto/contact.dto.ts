@@ -3,8 +3,18 @@ export class Contact {
   name?: string;
   phone?: string;
   profilePicUrl?: string;
-  // name: string;
-  // number: string;
-  // profilePicUrl?: string;
-  // email?: string;
+}
+
+export class getDetailsContact {
+  contactId?: number;
+  number?: string;
+}
+
+export class storeDetailsContact {
+  contactId?: number;
+  number?: string;
+  profilePicUrl?: string;
+  anotherName?: string;
+  about?: string;
+  observation?: string;
 }

@@ -4,6 +4,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { MyIoAdapter } from './modules/whatsapp/websockets/socket.io';
 import helmet from 'helmet';
 
+// Solución para el error: TypeError: Do not know how to serialize a BigInt
+(BigInt.prototype as any).toJSON = function () {
+  return Number(this);
+};
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.use(helmet());

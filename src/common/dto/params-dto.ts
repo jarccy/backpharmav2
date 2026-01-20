@@ -18,4 +18,8 @@ export class GetDTO {
 
   branch?: number | null;
   incriptionDate?: string | null;
+
+  year?: string | null;
+  month?: string | null;
+  category?: string | null;
 }

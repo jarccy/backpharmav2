@@ -11,6 +11,8 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { HttpModule } from '@nestjs/axios';
 import { TaskWhatsappService } from './services/taskWhatsapp.service';
+import { ChartService } from './services/chart.service';
+import { ChartController } from './chart.controller';
 
 @Module({
     imports: [
@@ -21,7 +23,7 @@ import { TaskWhatsappService } from './services/taskWhatsapp.service';
             }),
         }),
     ],
-    controllers: [WhatsappController, WebhookController],
+    controllers: [WhatsappController, WebhookController, ChartController],
     providers: [
         WhatsappGateway,
         PrismaService,
@@ -30,6 +32,7 @@ import { TaskWhatsappService } from './services/taskWhatsapp.service';
         MessageService,
         TemplateService,
         TaskWhatsappService,
+        ChartService,
     ],
 })
 export class WhatsappModule { }
