@@ -111,8 +111,8 @@ export class MessageService implements OnModuleInit {
 
     return {
       data,
-      total: 0,
-      last_page: 1,
+      total: total,
+      last_page: last_page,
     };
   }
 
@@ -459,48 +459,53 @@ export class MessageService implements OnModuleInit {
       ack = 0;
     }
 
-    const message = await this.prisma.messages.update({
-      where: {
-        id: (
-          await this.prisma.messages.findFirst({
-            where: {
-              messageId: data.messageId,
-              number: data.number,
-            },
-            select: { id: true },
-          })
-        )?.id,
-      },
-      data: {
-        timestamp: data.timestamp,
-        ack: ack,
-        isDelete: data.isDelete,
-      },
-    });
+    try {
+      const message = await this.prisma.messages.update({
+        where: {
+          id: (
+            await this.prisma.messages.findFirst({
+              where: {
+                messageId: data.messageId,
+                number: data.number,
+              },
+              select: { id: true },
+            })
+          )?.id,
+        },
+        data: {
+          timestamp: data.timestamp,
+          ack: ack,
+          isDelete: data.isDelete,
+        },
+      });
 
-    const updateMessage = {
-      id: message.id,
-      messageId: data.messageId,
-      number: data.number,
-      newStatus: ack
-    }
-
-    this.ws.emitEvent("updateMessage", updateMessage)
-
-    await this.prisma.messageStatus.create({
-      data: {
+      const updateMessage = {
+        id: message.id,
         messageId: data.messageId,
-        status: data.status,
-        recipientId: data.number,
-        pricing: data.pricing ? JSON.stringify(data.pricing) : "",
-        billing: data.pricing ? data.pricing.billing : false,
-        pricingModel: data.pricing ? data.pricing.pricingModel : "",
-        category: data.pricing ? data.pricing.category : "",
-        type: data.pricing ? data.pricing.type : "",
-      },
-    });
+        number: data.number,
+        newStatus: ack
+      }
 
-    return true;
+      this.ws.emitEvent("updateMessage", updateMessage)
+
+      await this.prisma.messageStatus.create({
+        data: {
+          messageId: data.messageId,
+          status: data.status,
+          recipientId: data.number,
+          pricing: data.pricing ? JSON.stringify(data.pricing) : "",
+          billing: data.pricing ? data.pricing.billing : false,
+          pricingModel: data.pricing ? data.pricing.pricingModel : "",
+          category: data.pricing ? data.pricing.category : "",
+          type: data.pricing ? data.pricing.type : "",
+        },
+      });
+
+      return true;
+    } catch (error) {
+      console.log(error);
+      return false;
+    }
   }
 
   async getTemplates() {

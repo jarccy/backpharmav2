@@ -474,7 +474,7 @@ export class PeopleService {
         const relationsToCreate = [];
 
         worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return; // Skip header
+          if (rowNumber === 1) return;
 
           // Get values safely
           const name = row.getCell(1).value?.toString()?.trim();
