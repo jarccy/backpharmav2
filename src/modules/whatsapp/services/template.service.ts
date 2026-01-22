@@ -108,6 +108,25 @@ export class TemplateService {
       image = await downloadAndSaveImage(data.file, './public/templates');
     }
 
+
+    if (data.componentsSend) {
+      let componentsSend = JSON.parse(data.componentsSend);
+
+      if (componentsSend.length > 0) {
+        const header = componentsSend[0];
+
+        if (header.type === 'header' && header.parameters.length > 0) {
+          let param = header.parameters[0];
+
+          if (param.type === 'image' && param.image && param.image.link) {
+            param.image.link = image;
+            data.componentsSend = JSON.stringify(componentsSend);
+          }
+        }
+      }
+    }
+
+
     await this.prisma.templates.create({
       data: {
         ...data,

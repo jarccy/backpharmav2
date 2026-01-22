@@ -57,6 +57,7 @@ export class TaskWhatsappService {
             },
             select: {
                 id: true,
+                title: true,
                 userId: true,
                 _count: {
                     select: {
@@ -89,7 +90,8 @@ export class TaskWhatsappService {
         this.whatsappGateway.emitEvent('Notify', {
             type: 'notify',
             calendarId: calendar.id,
-            inProgress: calendar._count.historySending,
+            title: calendar.title,
+            inProgress: 0,
             total: calendar._count.historySending
         });
 
@@ -108,6 +110,7 @@ export class TaskWhatsappService {
                 calendar: {
                     select: {
                         id: true,
+                        title: true,
                         userId: true,
                         template: {
                             select: {
@@ -158,7 +161,7 @@ export class TaskWhatsappService {
                 };
 
                 const response = await this.messageService.sendCalendarMessage(body);
-                console.log('Task ', response);
+                // console.log('Task ', response);
 
                 // Actualizar el estado del envio
                 const statusProcess = response ? 'Enviado' : 'No Enviado';
@@ -181,6 +184,7 @@ export class TaskWhatsappService {
                     this.whatsappGateway.emitEvent('Notify', {
                         type: 'notify',
                         calendarId: calendarId,
+                        title: person.calendar.title,
                         inProgress: peopleList.length,
                         total: peopleList.length
                     });
@@ -189,14 +193,15 @@ export class TaskWhatsappService {
                     this.whatsappGateway.emitEvent('Notify', {
                         type: 'SMessage',
                         calendarId: calendarId,
-                        inProgress: i,
+                        title: person.calendar.title,
+                        inProgress: i + 1,
                         total: peopleList.length
                     });
                 }
 
                 // Esperar 10 segundos antes de enviar al siguiente
                 if (i < peopleList.length - 1) {
-                    await new Promise((resolve) => setTimeout(resolve, 10000));
+                    await new Promise((resolve) => setTimeout(resolve, 5000));
                 }
             }
         } catch (error) {
@@ -246,99 +251,3 @@ export class TaskWhatsappService {
     }
 
 }
-
-// {
-//   id: 'wamid.HBgUNTE5NDc3NDUzNzU1MTk0Nzc0NTMVAgARGBI5NjE3RUQ5QkU5NTQyNTVEMDgA',
-//   status: 'failed',
-//   timestamp: '1767149914',
-//   recipient_id: '51947745375519477453',
-//   errors: [
-//     {
-//       code: 131026,
-//       title: 'Message undeliverable',
-//       message: 'Message undeliverable',
-//       error_data: [Object]
-//     }
-//   ]
-// }
-
-
-//  async SendMessage(timezone: string) {
-//         const people = await this.prisma.historySending.findFirst({
-//             where: { status: 'Pendiente', calendar: { deleted: false, status: 'En Proceso', countryTime: timezone } },
-//             select: {
-//                 id: true,
-//                 namePatient: true,
-//                 patientId: true,
-//                 phone: true,
-//                 calendar: {
-//                     select: {
-//                         id: true,
-//                         userId: true,
-//                         template: {
-//                             select: {
-//                                 name: true,
-//                                 language: true,
-//                                 componentsSend: true,
-//                                 message: true,
-//                                 file: true,
-//                             },
-//                         },
-//                     },
-//                 },
-//             },
-//             orderBy: { calendar: { id: 'asc' } },
-//         });
-
-//         if (!people) { return; }
-
-//         const localTime = dayjs().tz(timezone);
-//         const date = localTime.format('YYYY-MM-DD HH:mm:ss');
-
-//         let body = {
-//             number: people.phone,
-//             userId: people.calendar.userId,
-//             name: people.namePatient,
-//             message: people.calendar.template.message,
-//             mediaUrl: people.calendar.template.file,
-//             file: people.calendar.template.file,
-//             peopleId: +people.patientId,
-//             createdAt: date,
-//             template: {
-//                 name: people.calendar.template.name,
-//                 language: people.calendar.template.language,
-//                 componentsSend: people.calendar.template.componentsSend,
-//             },
-//         };
-
-//         const response = await this.messageService.sendCalendarMessage(body);
-
-//         console.log('Task ', response);
-
-//         let statusProcess = 'Enviado';
-//         if (!response) { statusProcess = 'No Enviado'; }
-
-//         await this.prisma.historySending.update({ where: { id: people.id }, data: { status: statusProcess } });
-
-//         const totalSend = await this.prisma.historySending.count({
-//             where: { status: 'Pendiente', calendar: { deleted: false, status: 'En Proceso', id: people.calendar.id } },
-//         });
-
-//         if (totalSend === 0) {
-//             await this.prisma.notify.create({
-//                 data: {
-//                     title: `Envio de Mensajes Finalizado`,
-//                     message: `Se ha finalizado el envio de mensajes a las ${dayjs().format('HH:mm')} del ${dayjs().format('YYYY-MM-DD')} con la plantilla ${people.calendar.template.name}`,
-//                     status: 'Finalizado',
-//                     type: 'Mensajes Programados',
-//                     userId: people.calendar.userId,
-//                 },
-//             });
-
-//             await this.prisma.calendar.update({ where: { id: people.calendar.id }, data: { status: 'Finalizado' } });
-
-//             this.whatsappGateway.emitEvent('Notify', 'notify');
-//         } else {
-//             this.whatsappGateway.emitEvent('Notify', 'SMessage');
-//         }
-//     }
