@@ -455,71 +455,202 @@ export class PeopleService {
     await workbook.xlsx.load(file.buffer as any);
     const worksheet = workbook.getWorksheet(1);
 
-    const lastPerson = await this.prisma.people.findFirst({
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
-    let currentId = lastPerson?.id || 0;
+    if (!worksheet) {
+      return 'No se encontró la hoja de trabajo en el archivo.';
+    }
 
-    const lastRelation = await this.prisma.relationPdv.findFirst({
-      orderBy: { id: 'desc' },
-      select: { id: true },
-    });
-    let currentRelationId = lastRelation?.id || 0;
+    const expectedHeaders = [
+      'ID_PAIS', 'NOMBRE', 'TIPO_DOCUMENTO', 'NUMERO_DOCUMENTO', 'FECHA_NACIMIENTO',
+      'PROFESION', 'ROL_SUCURSAL', 'ROL_CORPORATIVO', 'NUMERO_COLEGIATURA', 'CELULAR',
+      'CORREO', 'IDIOMA_PREFERIDO', 'CONSENTIMIENTO_WHATSAPP', 'CONSENTIMIENTO_CORREO',
+      'HORARIO_SILENCIO', 'INTERESES', 'ESTADO_PERSONA', 'BANCO', 'PAIS_BANCO',
+      'TIPO_CUENTA', 'NUMERO_CUENTA', 'TITULAR_CUENTA', 'ID_FISCAL_TITULAR',
+      'ESTADO_VALIDACION', 'NIVEL_CONFIANZA', 'DOC_IDENTIDAD_VALIDADO',
+      'COLEGIATURA_VALIDADA', 'CORREO_VALIDADO', 'TELEFONO_VALIDADO', 'FECHA_VALIDACION',
+      'SUS_PERSONA_ESTADO', 'SUS_PERSONA_PLAN', 'SUS_PERSONA_FECHA_INICIO',
+      'SUS_PERSONA_FECHA_FIN', 'SUS_PERSONA_RENOV_AUTO'
+    ];
+
+    const headerMap = new Map<string, number>();
+    const headerRow = worksheet.getRow(2);
+
+    // Iterar por las columnas de forma manual para asegurar que no se salte ninguna
+    const maxCols = Math.max(worksheet.columnCount, 40);
+    for (let i = 1; i <= maxCols; i++) {
+      const cell = headerRow.getCell(i);
+      const val = cell.value;
+      let text = '';
+
+      if (val && typeof val === 'object' && 'richText' in val) {
+        text = (val as any).richText.map((rt: any) => rt.text).join('');
+      } else {
+        text = cell.text || (val ? val.toString() : '');
+      }
+
+      const normalized = text
+        .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
+        .trim()
+        .toUpperCase();
+
+      if (normalized) {
+        headerMap.set(normalized, i);
+      }
+    }
+
+
+
+    const missingHeaders = expectedHeaders.filter(h => !headerMap.has(h));
+
+    if (missingHeaders.length > 0) {
+      await this.prisma.notify.create({
+        data: {
+          title: 'Error de Formato (Columnas)',
+          message: `Faltan las siguientes columnas o sus nombres no coinciden exactamente: ${missingHeaders.join(', ')}. Asegúrate de que los encabezados estén en la fila 2 y coincidan con el formato esperado.`.slice(0, 3000),
+          type: 'error',
+          status: 'new',
+          userId,
+        },
+      });
+      this.ws.emitEvent('Notify', { type: 'notify' });
+      return 'El archivo no tiene todas las columnas requeridas.';
+    }
 
     // Process in background
     (async () => {
       try {
+        const lastPerson = await this.prisma.people.findFirst({
+          orderBy: { id: 'desc' },
+          select: { id: true },
+        });
+        let currentId = lastPerson?.id || 0;
+
+        const lastRelation = await this.prisma.relationPdv.findFirst({
+          orderBy: { id: 'desc' },
+          select: { id: true },
+        });
+        let currentRelationId = lastRelation?.id || 0;
+
         const peopleToCreate = [];
         const relationsToCreate = [];
+        const errors = [];
 
-        worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return;
+        const parseDate = (value: any) => {
+          if (!value) return null;
+          if (value instanceof Date) return value;
+          const dateStr = value.toString().trim();
+          if (dateStr.includes('/')) {
+            const [day, month, year] = dateStr.split('/');
+            const date = dayjs(`${year}-${month}-${day}`).toDate();
+            return isNaN(date.getTime()) ? null : date;
+          }
+          const date = new Date(value);
+          return isNaN(date.getTime()) ? null : date;
+        };
 
-          // Get values safely
-          const name = row.getCell(1).value?.toString()?.trim();
-          const phone = row.getCell(2).value?.toString()?.trim();
-          const documentNumber = row.getCell(3).value?.toString()?.trim();
-          const countryIdValue = row.getCell(4).value;
-          const countryId = countryIdValue ? Number(countryIdValue) : null;
+        const getCellValue = (row: ExcelJS.Row, headerName: string) => {
+          const colIndex = headerMap.get(headerName);
+          return colIndex ? row.getCell(colIndex).value : null;
+        };
+
+        const getNumber = (value: any) => {
+          const num = Number(value);
+          return isNaN(num) ? null : num;
+        };
+
+        const getString = (value: any) => {
+          return value?.toString()?.trim() || null;
+        };
+
+        // Get all existing document numbers for validation
+        const existingDocs = new Set(
+          (await this.prisma.people.findMany({
+            select: { documentNumber: true },
+            where: { documentNumber: { not: null } }
+          })).map(p => p.documentNumber)
+        );
+
+        worksheet.eachRow(async (row, rowNumber) => {
+          if (rowNumber <= 2) return;
+
+          const documentNumber = getString(getCellValue(row, 'NUMERO_DOCUMENTO'));
+          const name = getString(getCellValue(row, 'NOMBRE'));
 
           if (!name) return;
+
+          if (documentNumber && existingDocs.has(documentNumber)) {
+            errors.push(`${name} (${documentNumber})`);
+            return;
+          }
 
           currentId++;
           currentRelationId++;
 
-          peopleToCreate.push({
+          const personData = {
             id: currentId,
-            name,
-            phone: phone || null,
-            documentNumber: documentNumber || null,
-            countryId: isNaN(countryId) ? null : countryId,
-            peopleStartDate: new Date(),
+            countryId: getNumber(getCellValue(row, 'ID_PAIS')),
+            name: name,
+            documentType: getNumber(getCellValue(row, 'TIPO_DOCUMENTO')),
+            documentNumber: documentNumber,
+            birthDate: parseDate(getCellValue(row, 'FECHA_NACIMIENTO')),
+            profession: getNumber(getCellValue(row, 'PROFESION')),
+            branchRole: getNumber(getCellValue(row, 'ROL_SUCURSAL')),
+            corporateRole: getNumber(getCellValue(row, 'ROL_CORPORATIVO')),
+            colegiatureNumber: getString(getCellValue(row, 'NUMERO_COLEGIATURA')),
+            phone: getString(getCellValue(row, 'CELULAR')),
+            email: getString(getCellValue(row, 'CORREO')),
+            language: getNumber(getCellValue(row, 'IDIOMA_PREFERIDO')),
+            whatsappConsent: getString(getCellValue(row, 'CONSENTIMIENTO_WHATSAPP')),
+            emailConsent: getString(getCellValue(row, 'CONSENTIMIENTO_CORREO')),
+            silenceHours: getString(getCellValue(row, 'HORARIO_SILENCIO')),
+            interests: getNumber(getCellValue(row, 'INTERESES')),
+            peopleStatus: getNumber(getCellValue(row, 'ESTADO_PERSONA')),
+            bank: getString(getCellValue(row, 'BANCO')),
+            bankCountry: getString(getCellValue(row, 'PAIS_BANCO')),
+            accountType: getNumber(getCellValue(row, 'TIPO_CUENTA')),
+            accountNumber: getString(getCellValue(row, 'NUMERO_CUENTA')),
+            accountHolder: getString(getCellValue(row, 'TITULAR_CUENTA')),
+            fiscalHolder: getString(getCellValue(row, 'ID_FISCAL_TITULAR')),
+            validationStatus: getNumber(getCellValue(row, 'ESTADO_VALIDACION')),
+            confidenceLevel: getNumber(getCellValue(row, 'NIVEL_CONFIANZA')),
+            identityValidated: getString(getCellValue(row, 'DOC_IDENTIDAD_VALIDADO')),
+            collegeValidated: getString(getCellValue(row, 'COLEGIATURA_VALIDADA')),
+            emailValidated: getString(getCellValue(row, 'CORREO_VALIDADO')),
+            phoneValidated: getString(getCellValue(row, 'TELEFONO_VALIDADO')),
             validatedBy: userId,
-          });
+            validationDate: parseDate(getCellValue(row, 'FECHA_VALIDACION')),
+            peopleState: getString(getCellValue(row, 'SUS_PERSONA_ESTADO')),
+            peoplePlan: getString(getCellValue(row, 'SUS_PERSONA_PLAN')),
+            peopleStartDate: parseDate(getCellValue(row, 'SUS_PERSONA_FECHA_INICIO')) || new Date(),
+            peopleEndDate: parseDate(getCellValue(row, 'SUS_PERSONA_FECHA_FIN')),
+            autoRenewal: getString(getCellValue(row, 'SUS_PERSONA_RENOV_AUTO')),
+          };
 
+          peopleToCreate.push(personData);
           relationsToCreate.push({
             id: currentRelationId,
             peopleId: currentId,
             status: true,
             createdAt: new Date(),
           });
+
+          if (documentNumber) existingDocs.add(documentNumber);
         });
 
         if (peopleToCreate.length === 0) {
           await this.prisma.notify.create({
             data: {
               title: 'Error en Importación',
-              message: 'No se encontraron datos válidos en el archivo.',
+              message: (errors.length > 0
+                ? `No se pudieron importar personas. Errores: ${errors.join(' ')}`
+                : 'No se encontraron datos válidos en el archivo.'),
               type: 'error',
               status: 'new',
               userId,
             },
           });
-          return false;
+          return;
         }
 
-        // Transaction for atomicity (Rollback on failure)
         await this.prisma.$transaction(async (tx) => {
           await tx.people.createMany({ data: peopleToCreate });
           await tx.relationPdv.createMany({ data: relationsToCreate as any });
@@ -528,29 +659,26 @@ export class PeopleService {
         await this.prisma.notify.create({
           data: {
             title: 'Importación Exitosa',
-            message: `Se han importado ${peopleToCreate.length} personas correctamente.`,
+            message: `Se han importado ${peopleToCreate.length} personas correctamente.${errors.length > 0 ? `\n\nNo se agregaron los siguientes (Documento ya existe): \n- ${errors.join('\n- ')}` : ''}`,
             type: 'success',
             status: 'new',
             userId,
           },
         });
       } catch (error) {
-        console.log('Error importing people:', error);
+        console.error('Error importing people:', error);
         await this.prisma.notify.create({
           data: {
             title: 'Error en Importación',
-            message: `No se pudo completar la importación. Error: ${error.message || 'Error desconocido'}. Se realizó un rollback.`,
+            message: `No se pudo completar la importación. Error: ${error.message || 'Error desconocido'}.`,
             type: 'error',
             status: 'new',
             userId,
           },
         });
       } finally {
-        this.ws.emitEvent('Notify', {
-          type: 'notify'
-        });
+        this.ws.emitEvent('Notify', { type: 'notify' });
       }
-
     })();
 
     return 'La importación ha comenzado en segundo plano.';

@@ -180,7 +180,7 @@ model historySending {
 model notify {
   id        Int      @id @default(autoincrement())
   title     String
-  message   String
+  message   String   @db.LongText
   status    String
   type      String
   userId    Int
