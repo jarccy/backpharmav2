@@ -365,7 +365,7 @@ export class MessageService implements OnModuleInit {
         peopleId: newId,
         entityId: null,
         pdvId: null,
-        status: 'ACTIVE',
+        status: 1,
         createdAt: new Date(),
       } as any,
     });
