@@ -149,6 +149,11 @@ export class MessageService implements OnModuleInit {
       return contact;
     }
 
+    if (data.number && !data.phone) {
+      data.phone = data.number;
+      delete data.number;
+    }
+
     const newContact = await this.prisma.people.create({
       data: data,
     });
@@ -340,7 +345,13 @@ export class MessageService implements OnModuleInit {
     const lastId = await this.prisma.people.findFirst({ orderBy: { id: 'desc' }, select: { id: true } });
 
     const newId = lastId?.id ? lastId.id + 1 : 1;
-    const people = await this.prisma.people.create({ data: { ...dto, id: newId } });
+    const people = await this.prisma.people.create({
+      data: {
+        id: newId,
+        name: dto.name,
+        phone: dto.number.trim(),
+      }
+    });
 
     const lastIdRelation = await this.prisma.relationPdv.findFirst({
       orderBy: { id: 'desc' }, select: { id: true }

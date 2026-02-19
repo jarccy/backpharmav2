@@ -3,8 +3,9 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { MyIoAdapter } from './modules/whatsapp/websockets/socket.io';
 import helmet from 'helmet';
+import * as express from 'express';
+import { join } from 'path';
 
-// Solución para el error: TypeError: Do not know how to serialize a BigInt
 (BigInt.prototype as any).toJSON = function () {
   return Number(this);
 };
@@ -23,7 +24,15 @@ async function bootstrap() {
   });
 
   app.useWebSocketAdapter(new MyIoAdapter(app));
-  // app.enableCors("*");
+
+  app.use('/public', express.static(join(__dirname, '..', 'public'),
+    {
+      setHeaders: (res) => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      },
+    })
+  );
 
   await app.listen(process.env.PORT || 5000);
 }
