@@ -210,7 +210,7 @@ export class MessageService implements OnModuleInit {
         }
       ));
 
-      console.log("Meta Media Upload Response:", response.data);
+      // console.log("Meta Media Upload Response:", response.data);
       return response.data.id;
     } catch (error) {
       console.error("Error uploading media to Meta:", error.response?.data || error.message);
@@ -302,7 +302,7 @@ export class MessageService implements OnModuleInit {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
       }));
 
-      console.log("Meta Response", response.data);
+      // console.log("Meta Response", response.data);
 
       if (response.status === 200) {
         messageId = response.data.messages[0].id;
