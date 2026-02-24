@@ -600,7 +600,23 @@ export class MessageService implements OnModuleInit {
         },
       });
 
+      // Si tenemos mediaId, lo usamos en el template si aplica o en el payload
       if (metaMediaId) {
+        componentt.forEach((component) => {
+          if (component.type === 'header' && component.parameters) {
+            component.parameters.forEach((param) => {
+              if (param.type === 'image') {
+                delete param.image.link;
+                param.image.id = metaMediaId;
+              } else if (param.type === 'video') {
+                delete param.video.link;
+                param.video.id = metaMediaId;
+              }
+            });
+          }
+        });
+
+        // Actualizar el body con los componentes modificados
         body.template.components = componentt;
       }
 
