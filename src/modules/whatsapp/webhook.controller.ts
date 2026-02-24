@@ -123,7 +123,7 @@ export class WebhookController {
         }
 
         const response = await this.messageService.sendMessage(+user.id, body, fileUrl);
-        console.log("Mensaje enviado:", response);
+        console.log("Mensaje Hook enviado:", response);
 
         return res.json(response);
     }

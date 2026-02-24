@@ -227,6 +227,7 @@ export class MessageService implements OnModuleInit {
 
     if (data.template && data.template !== 'null') {
       const template = JSON.parse(data.template) as detailTemplate;
+      console.log("template", template);
 
       body = {
         "messaging_product": "whatsapp",
@@ -267,6 +268,7 @@ export class MessageService implements OnModuleInit {
       }
 
       getUrlImage = `${process.env.BASE_URL}/${file.replace(/\\/g, '/')}`;
+
     } else {
       body = {
         "messaging_product": "whatsapp",
