@@ -227,7 +227,7 @@ export class MessageService implements OnModuleInit {
 
     if (data.template && data.template !== 'null') {
       const template = JSON.parse(data.template) as detailTemplate;
-      console.log("template", template);
+      // console.log("template", template);
 
       body = {
         "messaging_product": "whatsapp",
@@ -268,7 +268,6 @@ export class MessageService implements OnModuleInit {
       }
 
       getUrlImage = `${process.env.BASE_URL}/${file.replace(/\\/g, '/')}`;
-
     } else {
       body = {
         "messaging_product": "whatsapp",
@@ -304,7 +303,7 @@ export class MessageService implements OnModuleInit {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${this.configWhatsapp.metaToken}` },
       }));
 
-      // console.log("Meta Response", response.data);
+      console.log("Meta Response Input", response.data);
 
       if (response.status === 200) {
         messageId = response.data.messages[0].id;
@@ -601,23 +600,7 @@ export class MessageService implements OnModuleInit {
         },
       });
 
-      // Si tenemos mediaId, lo usamos en el template si aplica o en el payload
       if (metaMediaId) {
-        componentt.forEach((component) => {
-          if (component.type === 'header' && component.parameters) {
-            component.parameters.forEach((param) => {
-              if (param.type === 'image') {
-                delete param.image.link;
-                param.image.id = metaMediaId;
-              } else if (param.type === 'video') {
-                delete param.video.link;
-                param.video.id = metaMediaId;
-              }
-            });
-          }
-        });
-
-        // Actualizar el body con los componentes modificados
         body.template.components = componentt;
       }
 
