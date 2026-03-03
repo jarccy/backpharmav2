@@ -366,7 +366,7 @@ export class MessageService implements OnModuleInit {
         peopleId: newId,
         entityId: null,
         pdvId: null,
-        status: 1,
+        status: true,
         createdAt: new Date(),
       } as any,
     });
@@ -472,18 +472,21 @@ export class MessageService implements OnModuleInit {
     }
 
     try {
-      const message = await this.prisma.messages.update({
+      const existingMessage = await this.prisma.messages.findFirst({
         where: {
-          id: (
-            await this.prisma.messages.findFirst({
-              where: {
-                messageId: data.messageId,
-                number: data.number,
-              },
-              select: { id: true },
-            })
-          )?.id,
+          messageId: data.messageId,
+          number: data.number,
         },
+        select: { id: true },
+      });
+
+      if (!existingMessage) {
+        console.log("Mensaje no encontrado");
+        return false;
+      }
+
+      const message = await this.prisma.messages.update({
+        where: { id: existingMessage.id },
         data: {
           timestamp: data.timestamp,
           ack: ack,
@@ -495,10 +498,10 @@ export class MessageService implements OnModuleInit {
         id: message.id,
         messageId: data.messageId,
         number: data.number,
-        newStatus: ack
-      }
+        newStatus: ack,
+      };
 
-      this.ws.emitEvent("updateMessage", updateMessage)
+      this.ws.emitEvent("updateMessage", updateMessage);
 
       await this.prisma.messageStatus.create({
         data: {
@@ -518,6 +521,7 @@ export class MessageService implements OnModuleInit {
       console.log(error);
       return false;
     }
+
   }
 
   async getTemplates() {
